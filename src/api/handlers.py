@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from api.config import Settings
 from api.dtos import MatchDataDto, PlayerDetailsDto, StatusDto
-from api.responses import ApiResponse, json_ok
+from api.responses import ApiResponse, json_error, json_ok
+
+# Discord user IDs are snowflakes: unsigned 64-bit ints, 17-20 decimal digits in practice.
+_DISCORD_ID_RE = re.compile(r"[1-9][0-9]{16,19}")
+_UINT64_MAX = 2**64 - 1
+
+
+def is_discord_id(value: str) -> bool:
+    return _DISCORD_ID_RE.fullmatch(value) is not None and int(value) <= _UINT64_MAX
 
 
 async def get_status(settings: Settings, params: dict[str, str]) -> ApiResponse:
@@ -23,6 +32,8 @@ async def get_status(settings: Settings, params: dict[str, str]) -> ApiResponse:
 
 
 async def get_player_details(settings: Settings, params: dict[str, str]) -> ApiResponse:
+    if not is_discord_id(params["player_id"]):
+        return json_error(400, "invalid_player_id", "player_id must be a Discord user ID")
     # TODO: fetch from Slugbot (settings.slugbot_base_url / settings.slugbot_api_key)
     # using params["player_id"]. Static placeholder until then.
     dto = PlayerDetailsDto(
