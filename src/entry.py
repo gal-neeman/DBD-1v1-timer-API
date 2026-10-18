@@ -32,9 +32,12 @@ class Default(WorkerEntrypoint):
             else:
                 handler, params = resolved
                 response = await handler(settings, params)
-        except Exception:
+        except Exception as exc:
             configure_logging()
-            logger.exception("Unhandled error", extra={"method": method, "path": path})
+            reason = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+            logger.exception(
+                "Unhandled error", extra={"method": method, "path": path, "reason": reason}
+            )
             response = json_error(500, "internal_error", "Internal server error")
 
         logger.info(
