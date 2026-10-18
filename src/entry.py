@@ -43,7 +43,7 @@ class Default(WorkerEntrypoint):
             response = json_error(500, "internal_error", "Internal server error")
 
         logger.info(
-            "request",
+            path,
             extra={
                 "method": method,
                 "path": path,

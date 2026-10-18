@@ -5,10 +5,9 @@
   "scripts": {
     "dev": "uv run pywrangler dev",
     "dev:staging": "uv run pywrangler dev --env staging",
-    "dev:prod": "uv run pywrangler dev --env prod",
     "start": "uv run pywrangler dev",
     "deploy:staging": "uv run pywrangler deploy --env staging",
-    "deploy:prod": "uv run pywrangler deploy --env prod"
+    "deploy:prod": "uv run pywrangler deploy"
   },
   "devDependencies": {
     "wrangler": "^4.151.1"

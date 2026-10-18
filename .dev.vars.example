@@ -1,4 +1,4 @@
 # Local development secrets. Copy to .dev.vars (gitignored) and fill in real values.
-# `npm run dev` reads .dev.vars. `npm run dev:staging` / `dev:prod` read .dev.vars.staging / .dev.vars.prod
-# when that file exists (instead of .dev.vars), and fall back to .dev.vars otherwise.
+# `npm run dev` reads .dev.vars. `npm run dev:staging` reads .dev.vars.staging
+# when that file exists (instead of .dev.vars), and falls back to .dev.vars otherwise.
 SLUGBOT_API_KEY=changeme
