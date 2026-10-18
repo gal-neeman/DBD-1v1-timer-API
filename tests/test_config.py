@@ -1,7 +1,13 @@
 import unittest
 from types import SimpleNamespace
 
-from api.config import ConfigError, Settings
+from api.config import (
+    FAST_POLL_CAP_SEC_RANGE,
+    FAST_POLL_SEC_RANGE,
+    SLOW_POLL_SEC_RANGE,
+    ConfigError,
+    Settings,
+)
 
 VALID_ENV = {
     "DBDL_GUILD_ID": "123456789012345678",
@@ -48,6 +54,50 @@ class SettingsTest(unittest.TestCase):
             Settings.from_env(make_env(FAST_POLL_SEC="soon"))
         with self.assertRaisesRegex(ConfigError, "STATUS_ENABLED"):
             Settings.from_env(make_env(STATUS_ENABLED="maybe"))
+
+    def test_clamps_poll_values(self):
+        with self.assertLogs("dbd1v1timerapi", level="WARNING"):
+            settings = Settings.from_env(
+                make_env(FAST_POLL_SEC="1", SLOW_POLL_SEC="999999", FAST_POLL_CAP_SEC="-5")
+            )
+        self.assertEqual(settings.fast_poll_sec, FAST_POLL_SEC_RANGE[0])
+        self.assertEqual(settings.slow_poll_sec, SLOW_POLL_SEC_RANGE[1])
+        self.assertEqual(settings.fast_poll_cap_sec, FAST_POLL_CAP_SEC_RANGE[0])
+
+    def test_warns_for_each_clamped_value(self):
+        cases = [
+            ("FAST_POLL_SEC", "1", FAST_POLL_SEC_RANGE[0]),
+            ("FAST_POLL_SEC", "100000", FAST_POLL_SEC_RANGE[1]),
+            ("SLOW_POLL_SEC", "1", SLOW_POLL_SEC_RANGE[0]),
+            ("SLOW_POLL_SEC", "100000", SLOW_POLL_SEC_RANGE[1]),
+            ("FAST_POLL_CAP_SEC", "-5", FAST_POLL_CAP_SEC_RANGE[0]),
+            ("FAST_POLL_CAP_SEC", "100000", FAST_POLL_CAP_SEC_RANGE[1]),
+        ]
+        for variable, raw, expected in cases:
+            with self.subTest(variable=variable, value=raw):
+                with self.assertLogs("dbd1v1timerapi", level="WARNING") as logs:
+                    Settings.from_env(make_env(**{variable: raw}))
+                self.assertEqual(len(logs.records), 1)
+                record = logs.records[0]
+                self.assertEqual(record.levelname, "WARNING")
+                self.assertEqual(record.variable, variable)
+                self.assertEqual(record.value, int(raw))
+                self.assertEqual(record.clamped, expected)
+
+    def test_no_warning_for_in_range_values(self):
+        with self.assertNoLogs("dbd1v1timerapi", level="WARNING"):
+            Settings.from_env(make_env())
+
+    def test_no_warning_at_bounds(self):
+        for bound in (0, 1):
+            with self.subTest(bound="min" if bound == 0 else "max"):
+                env = make_env(
+                    FAST_POLL_SEC=str(FAST_POLL_SEC_RANGE[bound]),
+                    SLOW_POLL_SEC=str(SLOW_POLL_SEC_RANGE[bound]),
+                    FAST_POLL_CAP_SEC=str(FAST_POLL_CAP_SEC_RANGE[bound]),
+                )
+                with self.assertNoLogs("dbd1v1timerapi", level="WARNING"):
+                    Settings.from_env(env)
 
 
 if __name__ == "__main__":

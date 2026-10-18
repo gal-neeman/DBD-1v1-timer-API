@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+logger = logging.getLogger("dbd1v1timerapi")
+
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
+
+# Hard bounds for client poll settings, so a typo in the env can't make every
+# client hammer the API (or stop polling entirely). Out-of-range values are clamped.
+FAST_POLL_SEC_RANGE = (10, 300)
+SLOW_POLL_SEC_RANGE = (30, 3600)
+FAST_POLL_CAP_SEC_RANGE = (0, 600)
 
 
 class ConfigError(Exception):
@@ -32,6 +41,18 @@ def _parse_int(env: Any, name: str) -> int:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise ConfigError(f"{name} must be an integer, got {value!r}") from exc
+
+
+def _parse_bounded_int(env: Any, name: str, bounds: tuple[int, int]) -> int:
+    value = _parse_int(env, name)
+    low, high = bounds
+    clamped = min(max(value, low), high)
+    if clamped != value:
+        logger.warning(
+            "Config value out of range, clamped",
+            extra={"variable": name, "value": value, "clamped": clamped, "min": low, "max": high},
+        )
+    return clamped
 
 
 def _parse_bool(env: Any, name: str) -> bool:
@@ -70,9 +91,11 @@ class Settings:
             leaderboard_id=_parse_str(env, "LEADERBOARD_ID"),
             slugbot_base_url=_parse_str(env, "SLUGBOT_BASE_URL").rstrip("/"),
             status_enabled=_parse_bool(env, "STATUS_ENABLED"),
-            fast_poll_sec=_parse_int(env, "FAST_POLL_SEC"),
-            slow_poll_sec=_parse_int(env, "SLOW_POLL_SEC"),
-            fast_poll_cap_sec=_parse_int(env, "FAST_POLL_CAP_SEC"),
+            fast_poll_sec=_parse_bounded_int(env, "FAST_POLL_SEC", FAST_POLL_SEC_RANGE),
+            slow_poll_sec=_parse_bounded_int(env, "SLOW_POLL_SEC", SLOW_POLL_SEC_RANGE),
+            fast_poll_cap_sec=_parse_bounded_int(
+                env, "FAST_POLL_CAP_SEC", FAST_POLL_CAP_SEC_RANGE
+            ),
             latest_version=_parse_str(env, "LATEST_VERSION"),
             min_supported_version=_parse_str(env, "MIN_SUPPORTED_VERSION"),
             status_message="" if status_message is None else str(status_message),
