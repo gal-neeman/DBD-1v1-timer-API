@@ -30,6 +30,15 @@
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
+	/**
+	 * Environments
+	 * https://developers.cloudflare.com/workers/wrangler/environments/
+	 * The top level is for local dev (`npm run dev`) only. Deploy with `--env staging` or `--env prod`
+	 * (`npm run deploy:<env>`). A bare `wrangler deploy` creates a Worker with no public URL.
+	 * `vars` and `secrets` are NOT inherited by environments: add a new variable to all three blocks.
+	 */
+	"workers_dev": false,
+	"preview_urls": false,
 	// Public config: committed with real values. All values are strings, parsed in src/api/config.py.
 	"vars": {
 		"DBDL_GUILD_ID": "459532023690821643",
@@ -44,9 +53,61 @@
 		"STATUS_MESSAGE": "",
 		"LOG_LEVEL": "INFO"
 	},
-	// Private config: `npx wrangler secret put <NAME>` in prod, `.dev.vars` locally (see .dev.vars.example).
+	// Private config: `.dev.vars` locally (see .dev.vars.example), `wrangler secret put --env <env>` when deployed.
 	"secrets": {
 		"required": ["SLUGBOT_API_KEY"]
+	},
+	"env": {
+		// Deploys as Worker `dbd1v1timerapi-staging`.
+		"staging": {
+			"routes": [
+				{ "pattern": "dbd1v1-api-staging.truuehsoft.com", "custom_domain": true }
+			],
+			"workers_dev": false,
+			"preview_urls": false,
+			"vars": {
+				"DBDL_GUILD_ID": "459532023690821643",
+				"LEADERBOARD_ID": "1v1%20-%20ranked%20dbd",
+				"SLUGBOT_BASE_URL": "https://api.slugbot.xyz/pvplb/",
+				"STATUS_ENABLED": "true",
+				"FAST_POLL_SEC": "20",
+				"SLOW_POLL_SEC": "90",
+				"FAST_POLL_CAP_SEC": "120",
+				"LATEST_VERSION": "1.7.0",
+				"MIN_SUPPORTED_VERSION": "1.7.0",
+				"STATUS_MESSAGE": "",
+				"LOG_LEVEL": "DEBUG"
+			},
+			// `npx wrangler secret put <NAME> --env staging`
+			"secrets": {
+				"required": ["SLUGBOT_API_KEY"]
+			}
+		},
+		// Deploys as Worker `dbd1v1timerapi-prod`.
+		"prod": {
+			"routes": [
+				{ "pattern": "dbd1v1-api-prod.truuehsoft.com", "custom_domain": true }
+			],
+			"workers_dev": false,
+			"preview_urls": false,
+			"vars": {
+				"DBDL_GUILD_ID": "459532023690821643",
+				"LEADERBOARD_ID": "1v1%20-%20ranked%20dbd",
+				"SLUGBOT_BASE_URL": "https://api.slugbot.xyz/pvplb/",
+				"STATUS_ENABLED": "true",
+				"FAST_POLL_SEC": "20",
+				"SLOW_POLL_SEC": "90",
+				"FAST_POLL_CAP_SEC": "120",
+				"LATEST_VERSION": "1.7.0",
+				"MIN_SUPPORTED_VERSION": "1.7.0",
+				"STATUS_MESSAGE": "",
+				"LOG_LEVEL": "INFO"
+			},
+			// `npx wrangler secret put <NAME> --env prod`
+			"secrets": {
+				"required": ["SLUGBOT_API_KEY"]
+			}
+		}
 	},
 	/**
 	 * Static Assets
