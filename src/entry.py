@@ -16,6 +16,23 @@ def _to_worker_response(response: ApiResponse) -> Response:
     return Response(response.render(), status=response.status, headers=response.all_headers())
 
 
+def _client_info(request) -> dict[str, object]:
+    """Who is calling: the useful subset of the invocation log, minus the client IP."""
+    try:
+        headers = request.headers
+        cf = request.cf
+        return {
+            "user_agent": headers.get("user-agent"),
+            "ray_id": headers.get("cf-ray"),
+            "country": getattr(cf, "country", None),
+            "asn": getattr(cf, "asn", None),
+            "as_org": getattr(cf, "asOrganization", None),
+        }
+    except Exception:
+        # Logging context must never fail the request.
+        return {}
+
+
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         # Workers freeze the clock during execution and only advance it on I/O,
@@ -49,6 +66,7 @@ class Default(WorkerEntrypoint):
                 "path": path,
                 "status": response.status,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                **_client_info(request),
             },
         )
         return _to_worker_response(response)

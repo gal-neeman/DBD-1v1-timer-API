@@ -10,8 +10,11 @@
 	"compatibility_flags": [
 		"python_workers"
 	],
+	// Invocation logs are off: they double the log count with mostly TLS noise. The useful
+	// fields (user agent, ray id, country, ASN) are added to the request log in src/entry.py.
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"logs": { "invocation_logs": false }
 	},
 	/**
 	 * Smart Placement
