@@ -10,6 +10,8 @@ logger = logging.getLogger("dbd1v1timerapi")
 
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
+# Names logging.setLevel accepts, including its WARN/FATAL aliases.
+_LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL", "FATAL")
 
 # Hard bounds for client poll settings, so a typo in the env can't make every
 # client hammer the API (or stop polling entirely). Out-of-range values are clamped.
@@ -67,6 +69,19 @@ def _parse_bool(env: Any, name: str) -> bool:
     raise ConfigError(f"{name} must be a boolean, got {value!r}")
 
 
+def _parse_log_level(env: Any, name: str) -> str:
+    # Optional; an unknown name would make logging.setLevel raise on every request,
+    # so it falls back to INFO instead of failing.
+    level = str(getattr(env, name, None) or "INFO").strip().upper()
+    if level not in _LOG_LEVELS:
+        logger.warning(
+            "Unknown log level, falling back to INFO",
+            extra={"variable": name, "value": level, "allowed": list(_LOG_LEVELS)},
+        )
+        return "INFO"
+    return level
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     dbdl_guild_id: str
@@ -99,6 +114,6 @@ class Settings:
             latest_version=_parse_str(env, "LATEST_VERSION"),
             min_supported_version=_parse_str(env, "MIN_SUPPORTED_VERSION"),
             status_message="" if status_message is None else str(status_message),
-            log_level=str(getattr(env, "LOG_LEVEL", None) or "INFO").upper(),
+            log_level=_parse_log_level(env, "LOG_LEVEL"),
             slugbot_api_key=_parse_str(env, "SLUGBOT_API_KEY"),
         )

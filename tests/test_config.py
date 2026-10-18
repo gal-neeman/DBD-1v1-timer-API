@@ -1,3 +1,4 @@
+import logging
 import unittest
 from types import SimpleNamespace
 
@@ -54,6 +55,23 @@ class SettingsTest(unittest.TestCase):
             Settings.from_env(make_env(FAST_POLL_SEC="soon"))
         with self.assertRaisesRegex(ConfigError, "STATUS_ENABLED"):
             Settings.from_env(make_env(STATUS_ENABLED="maybe"))
+
+    def test_log_level(self):
+        for raw, expected in (("debug", "DEBUG"), (" warn ", "WARN"), ("", "INFO")):
+            with self.subTest(value=raw):
+                settings = Settings.from_env(make_env(LOG_LEVEL=raw))
+                self.assertEqual(settings.log_level, expected)
+                logging.getLogger("test").setLevel(settings.log_level)
+
+    def test_invalid_log_level_falls_back_to_info(self):
+        for raw in ("VERBOSE", "trace", "5"):
+            with self.subTest(value=raw):
+                with self.assertLogs("dbd1v1timerapi", level="WARNING") as logs:
+                    settings = Settings.from_env(make_env(LOG_LEVEL=raw))
+                self.assertEqual(settings.log_level, "INFO")
+                self.assertEqual(len(logs.records), 1)
+                self.assertEqual(logs.records[0].variable, "LOG_LEVEL")
+                self.assertEqual(logs.records[0].value, raw.upper())
 
     def test_clamps_poll_values(self):
         with self.assertLogs("dbd1v1timerapi", level="WARNING"):
