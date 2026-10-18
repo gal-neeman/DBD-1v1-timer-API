@@ -12,7 +12,7 @@
 	],
 	"observability": {
 		"enabled": true
-	}
+	},
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -30,7 +30,24 @@
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
+	// Public config: committed with real values. All values are strings, parsed in src/api/config.py.
+	"vars": {
+		"DBDL_GUILD_ID": "459532023690821643",
+		"LEADERBOARD_ID": "1v1%20-%20ranked%20dbd",
+		"SLUGBOT_BASE_URL": "https://api.slugbot.xyz/pvplb/",
+		"STATUS_ENABLED": "true",
+		"FAST_POLL_SEC": "20",
+		"SLOW_POLL_SEC": "90",
+		"FAST_POLL_CAP_SEC": "120",
+		"LATEST_VERSION": "1.7.0",
+		"MIN_SUPPORTED_VERSION": "1.7.0",
+		"STATUS_MESSAGE": "",
+		"LOG_LEVEL": "INFO"
+	},
+	// Private config: `npx wrangler secret put <NAME>` in prod, `.dev.vars` locally (see .dev.vars.example).
+	"secrets": {
+		"required": ["SLUGBOT_API_KEY"]
+	},
 	/**
 	 * Static Assets
 	 * https://developers.cloudflare.com/workers/static-assets/binding/

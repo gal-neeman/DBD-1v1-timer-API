@@ -1,0 +1,2 @@
+# Local development secrets. Copy to .dev.vars (gitignored) and fill in real values.
+SLUGBOT_API_KEY=changeme

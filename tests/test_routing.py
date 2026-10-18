@@ -1,0 +1,47 @@
+import asyncio
+import json
+import unittest
+
+from api import handlers
+from api.config import Settings
+from api.responses import ApiResponse
+from api.routing import resolve
+from tests.test_config import make_env
+
+
+class RoutingTest(unittest.TestCase):
+    def test_status_route(self):
+        handler, params = resolve("GET", "/api/v1/status/")
+        self.assertIs(handler, handlers.get_status)
+        self.assertEqual(params, {})
+
+    def test_player_route_captures_id(self):
+        handler, params = resolve("GET", "/api/v1/player/abc-123/details")
+        self.assertIs(handler, handlers.get_player_details)
+        self.assertEqual(params, {"player_id": "abc-123"})
+
+    def test_not_found(self):
+        response = resolve("GET", "/nope")
+        self.assertIsInstance(response, ApiResponse)
+        self.assertEqual(response.status, 404)
+
+    def test_method_not_allowed(self):
+        response = resolve("POST", "/api/v1/status")
+        self.assertEqual(response.status, 405)
+        self.assertEqual(response.headers["Allow"], "GET")
+
+
+class StatusHandlerTest(unittest.TestCase):
+    def test_status_body_excludes_secret(self):
+        settings = Settings.from_env(make_env())
+        response = asyncio.run(handlers.get_status(settings, {}))
+        body = json.loads(response.render())
+        self.assertEqual(response.status, 200)
+        self.assertEqual(body["latestVersion"], "1.2.0")
+        self.assertEqual(len(body), 7)
+        self.assertNotIn("dbdlGuildId", body)
+        self.assertNotIn("secret", response.render())
+
+
+if __name__ == "__main__":
+    unittest.main()

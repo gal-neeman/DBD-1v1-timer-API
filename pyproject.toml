@@ -1,7 +1,7 @@
 [project]
 name = "dbd1v1timerapi"
 version = "0.1.0"
-description = "Add your description here"
+description = "Lightweight API for DBDLeague 1v1 timer integrations, deployed as a Cloudflare Python Worker"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
