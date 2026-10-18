@@ -32,7 +32,11 @@ npm run dev        # uv run pywrangler dev -> http://localhost:8787
 Run the unit tests (no Workers runtime needed):
 
 ```
+# bash / zsh
 PYTHONPATH=src uv run python -m unittest discover -s tests -t .
+
+# PowerShell
+$env:PYTHONPATH = 'src'; uv run python -m unittest discover -s tests -t .
 ```
 
 ## Deploy
