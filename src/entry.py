@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 
 from workers import Response, WorkerEntrypoint
 
-from api.config import Settings
+from api.config import get_settings
 from api.log import configure_logging
 from api.responses import ApiResponse, json_error
 from api.routing import resolve
@@ -26,7 +26,7 @@ class Default(WorkerEntrypoint):
         try:
             # Install the JSON handler before parsing, so config warnings are formatted too.
             configure_logging()
-            settings = Settings.from_env(self.env)
+            settings = get_settings(self.env)
             configure_logging(settings.log_level)
             resolved = resolve(method, path)
             if isinstance(resolved, ApiResponse):

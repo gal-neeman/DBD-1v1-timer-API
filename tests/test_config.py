@@ -2,12 +2,14 @@ import logging
 import unittest
 from types import SimpleNamespace
 
+from api import config
 from api.config import (
     FAST_POLL_CAP_SEC_RANGE,
     FAST_POLL_SEC_RANGE,
     SLOW_POLL_SEC_RANGE,
     ConfigError,
     Settings,
+    get_settings,
 )
 
 VALID_ENV = {
@@ -116,6 +118,28 @@ class SettingsTest(unittest.TestCase):
                 )
                 with self.assertNoLogs("dbd1v1timerapi", level="WARNING"):
                     Settings.from_env(env)
+
+
+class GetSettingsTest(unittest.TestCase):
+    def setUp(self):
+        config._cached_settings = None
+
+    def tearDown(self):
+        config._cached_settings = None
+
+    def test_parses_once_and_warns_once(self):
+        with self.assertLogs("dbd1v1timerapi", level="WARNING") as logs:
+            first = get_settings(make_env(FAST_POLL_SEC="1"))
+            second = get_settings(make_env(FAST_POLL_SEC="1"))
+        self.assertIs(first, second)
+        self.assertEqual(len(logs.records), 1)
+
+    def test_failed_parse_is_not_cached(self):
+        env = make_env()
+        del env.SLUGBOT_API_KEY
+        with self.assertRaises(ConfigError):
+            get_settings(env)
+        self.assertEqual(get_settings(make_env()).slugbot_api_key, "secret")
 
 
 if __name__ == "__main__":

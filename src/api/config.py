@@ -117,3 +117,19 @@ class Settings:
             log_level=_parse_log_level(env, "LOG_LEVEL"),
             slugbot_api_key=_parse_str(env, "SLUGBOT_API_KEY"),
         )
+
+
+_cached_settings: Settings | None = None
+
+
+def get_settings(env: Any) -> Settings:
+    """Parse settings once per isolate and reuse them for later requests.
+
+    The env can't change within an isolate (changing a var or secret deploys a new
+    version, which starts new isolates), so re-parsing only repeats config warnings.
+    A failed parse raises before anything is cached, so the next request retries.
+    """
+    global _cached_settings
+    if _cached_settings is None:
+        _cached_settings = Settings.from_env(env)
+    return _cached_settings
