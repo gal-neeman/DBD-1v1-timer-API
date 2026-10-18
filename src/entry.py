@@ -18,6 +18,8 @@ def _to_worker_response(response: ApiResponse) -> Response:
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
+        # Workers freeze the clock during execution and only advance it on I/O,
+        # so duration_ms reads 0 for requests that never await I/O.
         started = time.perf_counter()
         method = request.method
         path = urlsplit(request.url).path
