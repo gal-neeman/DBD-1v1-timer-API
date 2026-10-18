@@ -24,6 +24,8 @@ class Default(WorkerEntrypoint):
         method = request.method
         path = urlsplit(request.url).path
         try:
+            # Install the JSON handler before parsing, so config warnings are formatted too.
+            configure_logging()
             settings = Settings.from_env(self.env)
             configure_logging(settings.log_level)
             resolved = resolve(method, path)
