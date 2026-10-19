@@ -16,7 +16,7 @@ class RoutingTest(unittest.TestCase):
         self.assertEqual(params, {})
 
     def test_player_route_captures_id(self):
-        handler, params = resolve("GET", "/api/v1/player/abc-123/details")
+        handler, params = resolve("GET", "/api/v1/players/abc-123")
         self.assertIs(handler, handlers.get_player_details)
         self.assertEqual(params, {"player_id": "abc-123"})
 

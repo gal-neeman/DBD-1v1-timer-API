@@ -42,13 +42,6 @@ async def get_player_details(settings: Settings, params: dict[str, str]) -> ApiR
         last10_results=[],
         current_rank=0,
         current_points=0.0,
-        last10_matches_data=[
-            MatchDataDto(
-                played_at=datetime(1970, 1, 1, tzinfo=timezone.utc),
-                players=[],
-                is_win=False,
-                points_received=0.0,
-            )
-        ],
+        last_matches_results=[0,0,1,1,1],
     )
     return json_ok(dto)

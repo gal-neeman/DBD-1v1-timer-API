@@ -60,4 +60,4 @@ class PlayerDetailsDto(Dto):
     last10_results: list[int]
     current_rank: int
     current_points: float
-    last10_matches_data: list[MatchDataDto]
+    last_matches_results: list[int]
