@@ -8,7 +8,7 @@ Runs as a Cloudflare Python Worker with no runtime dependencies (stdlib only).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/status` | Public client config (poll intervals, versions, status message) |
-| GET | `/api/v1/players/{playerId}` | Player stats (currently a static placeholder; Slugbot integration TODO) |
+| GET | `/api/v1/players/{playerId}` | Player stats from Slugbot: display name, season winrate (%), current win streak, rank, points and the last 10 match results (`1` win / `0` loss, newest first). `404` if Slugbot has no data for the player, `502`/`503` if Slugbot errors or is unreachable |
 
 All responses are JSON with camelCase fields. Errors use `{"error": {"code": "...", "message": "..."}}`.
 

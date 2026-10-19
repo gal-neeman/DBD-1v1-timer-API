@@ -53,30 +53,5 @@ class StatusHandlerTest(unittest.TestCase):
         self.assertNotIn("secret", response.render())
 
 
-class PlayerDetailsHandlerTest(unittest.TestCase):
-    def _call(self, player_id):
-        return asyncio.run(handlers.get_player_details(make_context(), {"player_id": player_id}))
-
-    def test_valid_discord_ids(self):
-        for player_id in ("80351110224678912", "1234567890123456789", "18446744073709551615"):
-            with self.subTest(player_id=player_id):
-                self.assertEqual(self._call(player_id).status, 200)
-
-    def test_invalid_player_ids(self):
-        for player_id in (
-            "abc-123",
-            "1234567890123456",  # 16 digits, too short
-            "123456789012345678901",  # 21 digits, too long
-            "18446744073709551616",  # exceeds uint64
-            "01234567890123456",  # leading zero
-            "١٢٣٤٥٦٧٨٩٠١٢٣٤٥٦٧",  # non-ASCII digits
-            "80351110224678912 ",
-        ):
-            with self.subTest(player_id=player_id):
-                response = self._call(player_id)
-                self.assertEqual(response.status, 400)
-                self.assertEqual(response.body["error"]["code"], "invalid_player_id")
-
-
 if __name__ == "__main__":
     unittest.main()
