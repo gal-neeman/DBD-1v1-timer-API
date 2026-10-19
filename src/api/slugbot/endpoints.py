@@ -33,5 +33,5 @@ class SlugbotEndpoint(Enum):
     MATCH_BATCH = Endpoint(
         "GET",
         "/{guild_id}/{leaderboard_id}/match/batch",
-        query_params=("limit", "nextCursor", "userId"),
+        query_params=("complete", "limit", "nextCursor", "userId"),
     )

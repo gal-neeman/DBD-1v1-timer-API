@@ -56,7 +56,8 @@ class SlugbotClientTest(unittest.TestCase):
         self.assertIsInstance(batch, SlugbotMatchBatchDto)
         self.assertEqual(len(batch.data), 1)
         self.assertEqual(
-            send.calls[0][1], f"{BASE}/match/batch?userId=273849165028374619&limit=10"
+            send.calls[0][1],
+            f"{BASE}/match/batch?userId=273849165028374619&limit=10&complete=true",
         )
 
     def test_get_match_batch_with_cursor(self):
@@ -64,7 +65,7 @@ class SlugbotClientTest(unittest.TestCase):
         asyncio.run(make_client(send).get_match_batch("273849165028374619", 10, 1792397295163))
         self.assertEqual(
             send.calls[0][1],
-            f"{BASE}/match/batch?userId=273849165028374619&limit=10&nextCursor=1792397295163",
+            f"{BASE}/match/batch?userId=273849165028374619&limit=10&complete=true&nextCursor=1792397295163",
         )
 
     def test_match_batch_unsuccessful(self):

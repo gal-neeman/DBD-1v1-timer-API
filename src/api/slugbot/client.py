@@ -53,7 +53,7 @@ class SlugbotClient:
         self, user_id: str, limit: int, cursor: int | None = None
     ) -> SlugbotMatchBatchDto:
         """Newest matches first; pass a previous page's paging.next_cursor to get older ones."""
-        query = {"userId": user_id, "limit": str(limit)}
+        query = {"userId": user_id, "limit": str(limit), "complete": "true"}
         if cursor is not None:
             query["nextCursor"] = str(cursor)
         data = await self._request(SlugbotEndpoint.MATCH_BATCH, query=query)
