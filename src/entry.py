@@ -2,18 +2,27 @@ import logging
 import time
 from urllib.parse import urlsplit
 
-from workers import Response, WorkerEntrypoint
+from workers import Response, WorkerEntrypoint, fetch
 
 from api.config import get_settings
+from api.context import Context
 from api.log import configure_logging
 from api.responses import ApiResponse, json_error
 from api.routing import resolve
+from api.slugbot import SlugbotClient
+from api.transport import HttpResponse
 
 logger = logging.getLogger("dbd1v1timerapi")
 
 
 def _to_worker_response(response: ApiResponse) -> Response:
     return Response(response.render(), status=response.status, headers=response.all_headers())
+
+
+async def _workers_send(method: str, url: str, headers: dict[str, str]) -> HttpResponse:
+    """HttpSend implementation over the Workers fetch API."""
+    response = await fetch(url, method=method, headers=headers)
+    return HttpResponse(response.status, await response.text())
 
 
 def _client_info(request) -> dict[str, object]:
@@ -50,7 +59,8 @@ class Default(WorkerEntrypoint):
                 response = resolved
             else:
                 handler, params = resolved
-                response = await handler(settings, params)
+                ctx = Context(settings, SlugbotClient(settings, _workers_send))
+                response = await handler(ctx, params)
         except Exception as exc:
             configure_logging()
             reason = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__

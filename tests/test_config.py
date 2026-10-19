@@ -7,6 +7,7 @@ from api.config import (
     FAST_POLL_CAP_SEC_RANGE,
     FAST_POLL_SEC_RANGE,
     SLOW_POLL_SEC_RANGE,
+    SLUGBOT_TIMEOUT_SEC_RANGE,
     ConfigError,
     Settings,
     get_settings,
@@ -16,6 +17,7 @@ VALID_ENV = {
     "DBDL_GUILD_ID": "123456789012345678",
     "LEADERBOARD_ID": "lb-1",
     "SLUGBOT_BASE_URL": "https://slugbot.example/",
+    "SLUGBOT_TIMEOUT_SEC": "5",
     "STATUS_ENABLED": "true",
     "FAST_POLL_SEC": "10",
     "SLOW_POLL_SEC": "60",
@@ -37,6 +39,7 @@ class SettingsTest(unittest.TestCase):
         self.assertIs(settings.status_enabled, True)
         self.assertEqual(settings.fast_poll_sec, 10)
         self.assertEqual(settings.slugbot_base_url, "https://slugbot.example")
+        self.assertEqual(settings.slugbot_timeout_sec, 5)
         self.assertEqual(settings.status_message, "")
         self.assertEqual(settings.log_level, "INFO")
         self.assertNotIn("secret", repr(settings))
@@ -92,6 +95,8 @@ class SettingsTest(unittest.TestCase):
             ("SLOW_POLL_SEC", "100000", SLOW_POLL_SEC_RANGE[1]),
             ("FAST_POLL_CAP_SEC", "-5", FAST_POLL_CAP_SEC_RANGE[0]),
             ("FAST_POLL_CAP_SEC", "100000", FAST_POLL_CAP_SEC_RANGE[1]),
+            ("SLUGBOT_TIMEOUT_SEC", "0", SLUGBOT_TIMEOUT_SEC_RANGE[0]),
+            ("SLUGBOT_TIMEOUT_SEC", "100000", SLUGBOT_TIMEOUT_SEC_RANGE[1]),
         ]
         for variable, raw, expected in cases:
             with self.subTest(variable=variable, value=raw):
@@ -115,6 +120,7 @@ class SettingsTest(unittest.TestCase):
                     FAST_POLL_SEC=str(FAST_POLL_SEC_RANGE[bound]),
                     SLOW_POLL_SEC=str(SLOW_POLL_SEC_RANGE[bound]),
                     FAST_POLL_CAP_SEC=str(FAST_POLL_CAP_SEC_RANGE[bound]),
+                    SLUGBOT_TIMEOUT_SEC=str(SLUGBOT_TIMEOUT_SEC_RANGE[bound]),
                 )
                 with self.assertNoLogs("dbd1v1timerapi", level="WARNING"):
                     Settings.from_env(env)

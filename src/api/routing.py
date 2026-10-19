@@ -7,10 +7,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from api import handlers
-from api.config import Settings
+from api.context import Context
 from api.responses import ApiResponse, json_error
 
-Handler = Callable[[Settings, dict[str, str]], Awaitable[ApiResponse]]
+Handler = Callable[[Context, dict[str, str]], Awaitable[ApiResponse]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +24,7 @@ ROUTES: tuple[Route, ...] = (
     Route("GET", re.compile(r"/api/v1/status"), handlers.get_status),
     Route(
         "GET",
-        re.compile(r"/api/v1/player/(?P<player_id>[^/]+)/details"),
+        re.compile(r"/api/v1/players/(?P<player_id>[^/]+)"),
         handlers.get_player_details,
     ),
 )
