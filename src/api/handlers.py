@@ -1,11 +1,11 @@
-"""Endpoint handlers. Each takes (settings, path params) and returns an ApiResponse."""
+"""Endpoint handlers. Each takes (context, path params) and returns an ApiResponse."""
 
 from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
 
-from api.config import Settings
+from api.context import Context
 from api.dtos import MatchDataDto, PlayerDetailsDto, StatusDto
 from api.responses import ApiResponse, json_error, json_ok
 
@@ -18,7 +18,8 @@ def is_discord_id(value: str) -> bool:
     return _DISCORD_ID_RE.fullmatch(value) is not None and int(value) <= _UINT64_MAX
 
 
-async def get_status(settings: Settings, params: dict[str, str]) -> ApiResponse:
+async def get_status(ctx: Context, params: dict[str, str]) -> ApiResponse:
+    settings = ctx.settings
     dto = StatusDto(
         status_enabled=settings.status_enabled,
         fast_poll_sec=settings.fast_poll_sec,
@@ -31,11 +32,11 @@ async def get_status(settings: Settings, params: dict[str, str]) -> ApiResponse:
     return json_ok(dto, {"Cache-Control": "no-store"})
 
 
-async def get_player_details(settings: Settings, params: dict[str, str]) -> ApiResponse:
+async def get_player_details(ctx: Context, params: dict[str, str]) -> ApiResponse:
     if not is_discord_id(params["player_id"]):
         return json_error(400, "invalid_player_id", "player_id must be a Discord user ID")
-    # TODO: fetch from Slugbot (settings.slugbot_base_url / settings.slugbot_api_key)
-    # using params["player_id"]. Static placeholder until then.
+    # TODO: build from ctx.slugbot.get_player / get_match_batch using params["player_id"].
+    # Static placeholder until then.
     dto = PlayerDetailsDto(
         season_winrate=0.0,
         current_streak=0,

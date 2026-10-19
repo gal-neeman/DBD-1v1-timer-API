@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from api.slugbot_dtos import SlugbotMatchBatchDto, SlugbotPlayerDto
+from api.slugbot.dtos import SlugbotMatchBatchDto, SlugbotPlayerDto
 
 PLAYER_JSON = {
     "userId": "381946270518364927",

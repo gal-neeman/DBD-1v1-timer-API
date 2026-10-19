@@ -4,9 +4,20 @@ import unittest
 
 from api import handlers
 from api.config import Settings
+from api.context import Context
 from api.responses import ApiResponse
 from api.routing import resolve
+from api.slugbot import SlugbotClient
 from tests.test_config import make_env
+
+
+async def _no_network(method, url, headers):
+    raise AssertionError(f"unexpected Slugbot call: {method} {url}")
+
+
+def make_context():
+    settings = Settings.from_env(make_env())
+    return Context(settings, SlugbotClient(settings, _no_network))
 
 
 class RoutingTest(unittest.TestCase):
@@ -33,8 +44,7 @@ class RoutingTest(unittest.TestCase):
 
 class StatusHandlerTest(unittest.TestCase):
     def test_status_body_excludes_secret(self):
-        settings = Settings.from_env(make_env())
-        response = asyncio.run(handlers.get_status(settings, {}))
+        response = asyncio.run(handlers.get_status(make_context(), {}))
         body = json.loads(response.render())
         self.assertEqual(response.status, 200)
         self.assertEqual(body["latestVersion"], "1.2.0")
@@ -45,8 +55,7 @@ class StatusHandlerTest(unittest.TestCase):
 
 class PlayerDetailsHandlerTest(unittest.TestCase):
     def _call(self, player_id):
-        settings = Settings.from_env(make_env())
-        return asyncio.run(handlers.get_player_details(settings, {"player_id": player_id}))
+        return asyncio.run(handlers.get_player_details(make_context(), {"player_id": player_id}))
 
     def test_valid_discord_ids(self):
         for player_id in ("80351110224678912", "1234567890123456789", "18446744073709551615"):

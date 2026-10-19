@@ -7,10 +7,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from api import handlers
-from api.config import Settings
+from api.context import Context
 from api.responses import ApiResponse, json_error
 
-Handler = Callable[[Settings, dict[str, str]], Awaitable[ApiResponse]]
+Handler = Callable[[Context, dict[str, str]], Awaitable[ApiResponse]]
 
 
 @dataclass(frozen=True, slots=True)

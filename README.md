@@ -8,7 +8,7 @@ Runs as a Cloudflare Python Worker with no runtime dependencies (stdlib only).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/status` | Public client config (poll intervals, versions, status message) |
-| GET | `/api/v1/player/{playerId}/details` | Player stats (currently a static placeholder; Slugbot integration TODO) |
+| GET | `/api/v1/players/{playerId}` | Player stats (currently a static placeholder; Slugbot integration TODO) |
 
 All responses are JSON with camelCase fields. Errors use `{"error": {"code": "...", "message": "..."}}`.
 
@@ -65,6 +65,17 @@ First deploy of an environment:
    npm run deploy:prod -- --secrets-file .dev.vars.prod
    ```
    Later deploys keep existing secrets. To change one, run `npx wrangler secret put SLUGBOT_API_KEY` (add `--env staging` for staging).
+
+## Layout
+
+```
+src/entry.py          Worker entrypoint; the only module that imports `workers`
+src/api/              routing, handlers, response DTOs, config, logging
+src/api/transport.py  HttpSend interface for outbound HTTP (implemented over `workers.fetch` in entry.py)
+src/api/slugbot/      Slugbot client, endpoint registry (endpoints.py) and response DTOs
+```
+
+Handlers receive a `Context` (settings + `SlugbotClient`). New Slugbot endpoints are added to `SlugbotEndpoint` in [src/api/slugbot/endpoints.py](src/api/slugbot/endpoints.py), then exposed as a method on `SlugbotClient`.
 
 ## Logging
 
