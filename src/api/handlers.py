@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 
 from api.context import Context
@@ -9,11 +11,14 @@ from api.dtos import PlayerDetailsDto, StatusDto
 from api.responses import ApiResponse, json_error, json_ok
 from api.slugbot import (
     SlugbotError,
+    SlugbotMatchBatchDto,
     SlugbotMatchDto,
     SlugbotNotFound,
     SlugbotPlayerDto,
     SlugbotUnavailable,
 )
+
+logger = logging.getLogger("dbd1v1timerapi")
 
 # Discord user IDs are snowflakes: unsigned 64-bit ints, 17-20 decimal digits in practice.
 _DISCORD_ID_RE = re.compile(r"[1-9][0-9]{16,19}")
@@ -48,10 +53,15 @@ async def get_player_details(ctx: Context, params: dict[str, str]) -> ApiRespons
     # The client logs every failure, so errors are only mapped to responses here.
     # SlugbotNotFound and SlugbotUnavailable subclass SlugbotError, so they come first.
     try:
-        player = await ctx.slugbot.get_player(player_id)
-        batch = await ctx.slugbot.get_match_batch(player_id, _LAST_MATCHES_LIMIT)
-        if not batch.success:
-            raise SlugbotError("MATCH_BATCH: success=false")
+        player, batch = await asyncio.gather(
+            ctx.slugbot.get_player(player_id),
+            ctx.slugbot.get_match_batch(player_id, _LAST_MATCHES_LIMIT),
+            return_exceptions=True,
+        )
+        # Player errors win, so a missing player is always a 404 whatever the batch did.
+        for outcome in (player, batch):
+            if isinstance(outcome, BaseException):
+                raise outcome
     except SlugbotNotFound:
         return json_error(404, "player_not_found", "No ranked data for this player")
     except SlugbotUnavailable:
@@ -61,7 +71,42 @@ async def get_player_details(ctx: Context, params: dict[str, str]) -> ApiRespons
             502, "upstream_error", "Leaderboard service returned an invalid response"
         )
 
-    return json_ok(_to_player_details(player, batch.data, player_id))
+    results = _match_results(batch.data, player_id)
+    streak = _win_streak(results)
+    if results and streak == len(results):
+        streak = await _extend_streak(ctx, player_id, batch, streak)
+    return json_ok(_to_player_details(player, results, streak))
+
+
+async def _extend_streak(
+    ctx: Context, player_id: str, batch: SlugbotMatchBatchDto, streak: int
+) -> int:
+    """Keep counting wins on older pages until a loss or the last page.
+
+    A failed page ends the count early: the streak so far is returned rather than an error.
+    """
+    while batch.paging.has_next_page and batch.paging.next_cursor is not None:
+        cursor = batch.paging.next_cursor
+        try:
+            batch = await ctx.slugbot.get_match_batch(player_id, _LAST_MATCHES_LIMIT, cursor)
+        except SlugbotError:
+            logger.warning(
+                "Win streak truncated", extra={"player_id": player_id, "streak": streak}
+            )
+            return streak
+        results = _match_results(batch.data, player_id)
+        page_streak = _win_streak(results)
+        streak += page_streak
+        if page_streak < len(results):
+            break
+        # Without this a misbehaving upstream could keep us paging forever.
+        if batch.paging.next_cursor == cursor:
+            logger.warning(
+                "Slugbot paging cursor did not advance",
+                extra={"player_id": player_id, "cursor": cursor, "streak": streak},
+            )
+            break
+    return streak
 
 
 def _match_results(matches: list[SlugbotMatchDto], player_id: str) -> list[int]:
@@ -88,13 +133,12 @@ def _winrate_percent(won: int, played: int) -> float:
 
 
 def _to_player_details(
-    player: SlugbotPlayerDto, matches: list[SlugbotMatchDto], player_id: str
+    player: SlugbotPlayerDto, results: list[int], streak: int
 ) -> PlayerDetailsDto:
-    results = _match_results(matches, player_id)
     return PlayerDetailsDto(
         player_name=player.display_name,
         season_winrate=_winrate_percent(player.matches_won, player.matches_played),
-        current_streak=_win_streak(results),
+        current_streak=streak,
         current_rank=player.rank,
         current_points=player.points,
         last_matches_results=results,

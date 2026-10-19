@@ -11,6 +11,13 @@ def _from_epoch_ms(ms: int) -> datetime:
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
 
 
+def _optional_int(value: Any) -> int | None:
+    """None or a real int. Strict because cursors are sent back to Slugbot as-is."""
+    if value is None or (isinstance(value, int) and not isinstance(value, bool)):
+        return value
+    raise TypeError(f"expected int or null, got {type(value).__name__}")
+
+
 @dataclass(frozen=True, slots=True)
 class SlugbotPlayerDto:
     """Response of GET /player/<id>."""
@@ -108,7 +115,7 @@ class SlugbotPagingDto:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SlugbotPagingDto:
         return cls(
-            next_cursor=data.get("nextCursor"),
+            next_cursor=_optional_int(data.get("nextCursor")),
             has_next_page=bool(data["hasNextPage"]),
         )
 

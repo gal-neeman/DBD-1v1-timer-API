@@ -108,6 +108,13 @@ class SlugbotDtoParsingTest(unittest.TestCase):
         self.assertIsNone(batch.paging.next_cursor)
         self.assertFalse(batch.paging.has_next_page)
 
+    def test_paging_rejects_non_int_cursor(self):
+        for cursor in ("1792397295163", True, 1.5):
+            with self.subTest(cursor=cursor), self.assertRaises(TypeError):
+                SlugbotMatchBatchDto.from_dict(
+                    {"success": True, "data": [], "paging": {"nextCursor": cursor, "hasNextPage": True}}
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

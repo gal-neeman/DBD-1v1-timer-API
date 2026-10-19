@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import json
 import unittest
 
@@ -57,6 +58,36 @@ class SlugbotClientTest(unittest.TestCase):
         self.assertEqual(
             send.calls[0][1], f"{BASE}/match/batch?userId=273849165028374619&limit=10"
         )
+
+    def test_get_match_batch_with_cursor(self):
+        send = FakeSend(body=json.dumps(MATCH_BATCH_JSON))
+        asyncio.run(make_client(send).get_match_batch("273849165028374619", 10, 1792397295163))
+        self.assertEqual(
+            send.calls[0][1],
+            f"{BASE}/match/batch?userId=273849165028374619&limit=10&nextCursor=1792397295163",
+        )
+
+    def test_match_batch_unsuccessful(self):
+        send = FakeSend(body=json.dumps({**MATCH_BATCH_JSON, "success": False}))
+        with self.assertLogs("dbd1v1timerapi", level="WARNING"), self.assertRaisesRegex(
+            SlugbotError, "success=false"
+        ):
+            asyncio.run(make_client(send).get_match_batch("1", 10))
+
+    def test_timeout(self):
+        async def slow_send(method, url, headers):
+            await asyncio.sleep(1)
+            return HttpResponse(200, json.dumps(PLAYER_JSON))
+
+        settings = dataclasses.replace(
+            Settings.from_env(make_env()), slugbot_timeout_sec=0.01
+        )
+        client = SlugbotClient(settings, slow_send)
+        with self.assertLogs("dbd1v1timerapi", level="WARNING") as logs, self.assertRaisesRegex(
+            SlugbotUnavailable, "TimeoutError"
+        ):
+            asyncio.run(client.get_player("1"))
+        self.assertIn("TimeoutError", logs.records[0].reason)
 
     def test_not_found(self):
         with self.assertRaises(SlugbotNotFound):

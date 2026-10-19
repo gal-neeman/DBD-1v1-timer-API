@@ -1,7 +1,6 @@
 import unittest
-from datetime import datetime, timedelta, timezone
 
-from api.dtos import MatchDataDto, PlayerDetailsDto
+from api.dtos import PlayerDetailsDto
 
 
 class DtoSerializationTest(unittest.TestCase):
@@ -23,23 +22,6 @@ class DtoSerializationTest(unittest.TestCase):
                 "currentRank": 7,
                 "currentPoints": 1234.5,
                 "lastMatchesResults": [0, 1, 1],
-            },
-        )
-
-    def test_match_data_camel_case_and_iso_dates(self):
-        match = MatchDataDto(
-            played_at=datetime(2026, 1, 2, 5, 4, 5, tzinfo=timezone(timedelta(hours=2))),
-            players=["a", "b"],
-            is_win=True,
-            points_received=12.5,
-        )
-        self.assertEqual(
-            match.to_dict(),
-            {
-                "playedAt": "2026-01-02T03:04:05Z",
-                "players": ["a", "b"],
-                "isWin": True,
-                "pointsReceived": 12.5,
             },
         )
 

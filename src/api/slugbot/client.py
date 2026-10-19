@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -24,7 +25,7 @@ class SlugbotNotFound(SlugbotError):
 
 
 class SlugbotUnavailable(SlugbotError):
-    """The request never got a response (network failure)."""
+    """The request never got a response (network failure or timeout)."""
 
 
 class _FromDict(Protocol):
@@ -41,17 +42,29 @@ class SlugbotClient:
         self._guild_id = settings.dbdl_guild_id
         self._leaderboard_id = settings.leaderboard_id
         self._api_key = settings.slugbot_api_key
+        self._timeout = settings.slugbot_timeout_sec
         self._send = send
 
     async def get_player(self, user_id: str) -> SlugbotPlayerDto:
         data = await self._request(SlugbotEndpoint.PLAYER, user_id=user_id)
         return self._parse(SlugbotEndpoint.PLAYER, SlugbotPlayerDto, data)
 
-    async def get_match_batch(self, user_id: str, limit: int) -> SlugbotMatchBatchDto:
-        data = await self._request(
-            SlugbotEndpoint.MATCH_BATCH, query={"userId": user_id, "limit": str(limit)}
-        )
-        return self._parse(SlugbotEndpoint.MATCH_BATCH, SlugbotMatchBatchDto, data)
+    async def get_match_batch(
+        self, user_id: str, limit: int, cursor: int | None = None
+    ) -> SlugbotMatchBatchDto:
+        """Newest matches first; pass a previous page's paging.next_cursor to get older ones."""
+        query = {"userId": user_id, "limit": str(limit)}
+        if cursor is not None:
+            query["nextCursor"] = str(cursor)
+        data = await self._request(SlugbotEndpoint.MATCH_BATCH, query=query)
+        batch = self._parse(SlugbotEndpoint.MATCH_BATCH, SlugbotMatchBatchDto, data)
+        if not batch.success:
+            logger.warning(
+                "Slugbot batch unsuccessful",
+                extra={"endpoint": SlugbotEndpoint.MATCH_BATCH.name, "cursor": cursor},
+            )
+            raise SlugbotError("MATCH_BATCH: success=false")
+        return batch
 
     async def _request(
         self,
@@ -70,7 +83,10 @@ class SlugbotClient:
 
         started = time.perf_counter()
         try:
-            response = await self._send(spec.method, url, headers)
+            # Stops waiting on timeout (raises TimeoutError); the fetch itself isn't aborted.
+            response = await asyncio.wait_for(
+                self._send(spec.method, url, headers), timeout=self._timeout
+            )
         except Exception as exc:
             logger.warning(
                 "Slugbot request failed",
