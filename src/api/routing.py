@@ -24,7 +24,7 @@ ROUTES: tuple[Route, ...] = (
     Route("GET", re.compile(r"/api/v1/status"), handlers.get_status),
     Route(
         "GET",
-        re.compile(r"/api/v1/player/(?P<player_id>[^/]+)/details"),
+        re.compile(r"/api/v1/players/(?P<player_id>[^/]+)"),
         handlers.get_player_details,
     ),
 )
