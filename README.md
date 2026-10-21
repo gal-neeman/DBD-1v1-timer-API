@@ -8,7 +8,7 @@ Runs as a Cloudflare Python Worker with no runtime dependencies (stdlib only).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/status` | Public client config (poll intervals, versions, status message) |
-| GET | `/api/v1/players/{playerId}` | Player stats from Slugbot: display name, season winrate (%), current win streak, rank, points and the last 10 match results (`1` win / `0` loss, newest first; fewer if fewer were played). The win streak pages back through older matches until the first loss, so it can exceed 10. `404` if Slugbot has no data for the player, `502`/`503` if Slugbot errors or is unreachable (each Slugbot call times out after `SLUGBOT_TIMEOUT_SEC`) |
+| GET | `/api/v1/players/{playerId}` | Player stats from Slugbot: display name, season winrate (%), current win streak, rank, points and `lastMatches`: up to 10 matches, newest first, each with `opponentName` (Discord display name, `"Unknown"` if the lookup fails), `pointsGained` (signed), `matchDate`, `isWin`, `playerScore`/`opponentScore` (games won in the set, `null` if unreported) and `playerRankBefore`/`opponentRankBefore`. The win streak pages back through older matches until the first loss, so it can exceed 10. `404` if Slugbot has no data for the player, `502`/`503` if Slugbot errors or is unreachable (each Slugbot call times out after `SLUGBOT_TIMEOUT_SEC`) |
 
 All responses are JSON with camelCase fields. Errors use `{"error": {"code": "...", "message": "..."}}`.
 

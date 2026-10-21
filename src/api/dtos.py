@@ -46,10 +46,25 @@ class StatusDto(Dto):
 
 
 @dataclass(frozen=True, slots=True)
+class MatchDto(Dto):
+    """One match from the player's point of view."""
+
+    opponent_name: str
+    points_gained: float  # signed: negative on a loss
+    match_date: datetime
+    is_win: bool
+    # Games won in the set (best of 3); None if Slugbot didn't report a score.
+    player_score: int | None
+    opponent_score: int | None
+    player_rank_before: int
+    opponent_rank_before: int
+
+
+@dataclass(frozen=True, slots=True)
 class PlayerDetailsDto(Dto):
     player_name: str
     season_winrate: float
     current_streak: int
     current_rank: int
     current_points: float
-    last_matches_results: list[int]
+    last_matches: list[MatchDto]

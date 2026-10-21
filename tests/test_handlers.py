@@ -10,9 +10,10 @@ from api.context import Context
 from api.discord import DiscordClient
 from api.slugbot import SlugbotClient
 from api.transport import HttpResponse
+from tests.discord.test_dtos import USER_JSON
 from tests.slugbot.test_dtos import MATCH_BATCH_JSON, PLAYER_JSON
 from tests.test_config import make_env
-from tests.test_routing import _no_network, make_context
+from tests.test_routing import make_context
 
 PLAYER_ID = "273849165028374619"
 OPPONENT_ID = "1048372615940283746"
@@ -63,9 +64,35 @@ class FakeSlugbot:
         return [url for url in self.urls if "/match/batch" in url]
 
 
-def make_slugbot_context(send):
+class FakeDiscord:
+    """HttpSend serving /users/<id>. Unlisted ids get USER_JSON with that id; a listed
+    (status, body) pair overrides it, and a listed exception is raised."""
+
+    def __init__(self, users=None):
+        self.users = users or {}
+        self.urls = []
+
+    async def __call__(self, method, url, headers):
+        self.urls.append(url)
+        user_id = url.rsplit("/", 1)[1]
+        outcome = self.users.get(user_id, (200, {**USER_JSON, "id": user_id}))
+        if isinstance(outcome, BaseException):
+            raise outcome
+        status, body = outcome
+        return HttpResponse(status, json.dumps(body))
+
+
+def make_slugbot_context(send, discord_send=None):
     settings = Settings.from_env(make_env())
-    return Context(settings, SlugbotClient(settings, send), DiscordClient(settings, _no_network))
+    return Context(
+        settings,
+        SlugbotClient(settings, send),
+        DiscordClient(settings, discord_send or FakeDiscord()),
+    )
+
+
+def _is_wins(body):
+    return [match["isWin"] for match in body["lastMatches"]]
 
 
 class PlayerDetailsValidationTest(unittest.TestCase):
@@ -96,8 +123,8 @@ class PlayerDetailsValidationTest(unittest.TestCase):
 
 
 class PlayerDetailsMappingTest(unittest.TestCase):
-    def _call(self, send):
-        ctx = make_slugbot_context(send)
+    def _call(self, send, discord_send=None):
+        ctx = make_slugbot_context(send, discord_send)
         return asyncio.run(handlers.get_player_details(ctx, {"player_id": PLAYER_ID}))
 
     def test_maps_player_and_matches(self):
@@ -108,22 +135,89 @@ class PlayerDetailsMappingTest(unittest.TestCase):
         response = self._call(send)
 
         self.assertEqual(response.status, 200)
+        body = json.loads(response.render())
         self.assertEqual(
-            json.loads(response.render()),
+            {k: v for k, v in body.items() if k != "lastMatches"},
             {
                 "playerName": "TestPlayer",
                 "seasonWinrate": 87.5,
                 "currentStreak": 2,
                 "currentRank": 1,
                 "currentPoints": 30.10524021259957,
-                "lastMatchesResults": [1, 1, 0, 1],
             },
         )
+        self.assertEqual(_is_wins(body), [True, True, False, True])
         # Both calls run in parallel, so only membership is checked, not order.
         self.assertTrue(any(f"/player/{PLAYER_ID}" in url for url in send.urls))
         # The streak ended on the first page, so no older page is fetched.
         self.assertEqual(len(send.batch_urls()), 1)
         self.assertIn(f"userId={PLAYER_ID}&limit=10", send.batch_urls()[0])
+
+    def test_match_fields(self):
+        loss = _match(1792398138435, False)
+        loss["declaredResults"] = {"team0": [1, 1], "team1": [2, 2]}
+        loss["participants"][0]["pointsReceived"] = -3.5
+        body = json.loads(self._call(FakeSlugbot(batches={None: (200, _page([loss]))})).render())
+        self.assertEqual(
+            body["lastMatches"],
+            [
+                {
+                    "opponentName": "Nelly",
+                    "pointsGained": -3.5,
+                    "matchDate": "2026-10-19T08:22:18.435000Z",
+                    "isWin": False,
+                    "playerScore": 1,
+                    "opponentScore": 2,
+                    "playerRankBefore": 667,
+                    "opponentRankBefore": 3972,
+                }
+            ],
+        )
+
+    def test_player_on_second_team(self):
+        match = _match(1000, True)
+        first, second = match["participants"]
+        first["playerId"], second["playerId"] = OPPONENT_ID, PLAYER_ID
+        match["winTeam"] = 1
+        body = json.loads(self._call(FakeSlugbot(batches={None: (200, _page([match]))})).render())
+        played = body["lastMatches"][0]
+        self.assertTrue(played["isWin"])
+        self.assertEqual((played["playerScore"], played["opponentScore"]), (0, 2))
+        self.assertEqual((played["playerRankBefore"], played["opponentRankBefore"]), (3972, 667))
+        self.assertEqual(played["pointsGained"], -7.360593541613343)
+
+    def test_opponent_name_falls_back_to_username(self):
+        discord = FakeDiscord({OPPONENT_ID: (200, {**USER_JSON, "global_name": None})})
+        body = json.loads(self._call(FakeSlugbot(), discord).render())
+        self.assertEqual(body["lastMatches"][0]["opponentName"], "nelly")
+
+    def test_failed_name_lookup_is_unknown(self):
+        for outcome in ((404, {}), (429, {}), OSError("connection reset")):
+            with self.subTest(outcome=outcome):
+                discord = FakeDiscord({OPPONENT_ID: outcome})
+                with self.assertLogs("dbd1v1timerapi", level="INFO"):
+                    response = self._call(FakeSlugbot(), discord)
+                self.assertEqual(response.status, 200)
+                body = json.loads(response.render())
+                self.assertEqual(body["lastMatches"][0]["opponentName"], "Unknown")
+
+    def test_each_opponent_looked_up_once(self):
+        other = _match(500, True)
+        other["participants"][1]["playerId"] = "555555555555555555"
+        matches = [_match(3000, True), _match(2000, False), other]
+        discord = FakeDiscord()
+        self._call(FakeSlugbot(batches={None: (200, _page(matches))}), discord)
+        self.assertEqual(
+            sorted(url.rsplit("/", 1)[1] for url in discord.urls),
+            sorted(["555555555555555555", OPPONENT_ID]),
+        )
+
+    def test_missing_score_is_null(self):
+        match = _match(1000, True)
+        match["declaredResults"] = {}
+        body = json.loads(self._call(FakeSlugbot(batches={None: (200, _page([match]))})).render())
+        self.assertIsNone(body["lastMatches"][0]["playerScore"])
+        self.assertIsNone(body["lastMatches"][0]["opponentScore"])
 
     def test_skips_matches_without_player(self):
         other = _match(9000, True)
@@ -131,21 +225,30 @@ class PlayerDetailsMappingTest(unittest.TestCase):
             participant["playerId"] = "999999999999999999"
         batches = {None: (200, _page([other, _match(1000, False)]))}
         body = json.loads(self._call(FakeSlugbot(batches=batches)).render())
-        self.assertEqual(body["lastMatchesResults"], [0])
+        self.assertEqual(_is_wins(body), [False])
         self.assertEqual(body["currentStreak"], 0)
+
+    def test_skips_matches_without_opponent(self):
+        solo = _match(9000, True)
+        solo["participants"] = solo["participants"][:1]
+        batches = {None: (200, _page([solo, _match(1000, False)]))}
+        body = json.loads(self._call(FakeSlugbot(batches=batches)).render())
+        self.assertEqual(_is_wins(body), [False])
 
     def test_no_matches_played(self):
         player = {**PLAYER_JSON, "matchesPlayed": 0, "matchesWon": 0}
         send = FakeSlugbot(player=(200, player), batches={None: (200, _page([]))})
-        body = json.loads(self._call(send).render())
+        discord = FakeDiscord()
+        body = json.loads(self._call(send, discord).render())
         self.assertEqual(body["seasonWinrate"], 0.0)
         self.assertEqual(body["currentStreak"], 0)
-        self.assertEqual(body["lastMatchesResults"], [])
+        self.assertEqual(body["lastMatches"], [])
+        self.assertEqual(discord.urls, [])
 
     def test_fewer_than_ten_matches(self):
         matches = [_match(3000, True), _match(2000, False), _match(1000, True)]
         body = json.loads(self._call(FakeSlugbot(batches={None: (200, _page(matches))})).render())
-        self.assertEqual(body["lastMatchesResults"], [1, 0, 1])
+        self.assertEqual(_is_wins(body), [True, False, True])
         self.assertEqual(body["currentStreak"], 1)
 
 
@@ -164,7 +267,7 @@ class PlayerDetailsStreakTest(unittest.TestCase):
         )
         body = json.loads(self._call(send).render())
         self.assertEqual(body["currentStreak"], 13)
-        self.assertEqual(body["lastMatchesResults"], [1] * 10)
+        self.assertEqual(_is_wins(body), [True] * 10)
         # Stopped at the loss without fetching the page after it.
         self.assertEqual(len(send.batch_urls()), 2)
         self.assertIn("nextCursor=91", send.batch_urls()[1])
