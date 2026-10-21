@@ -26,6 +26,7 @@ VALID_ENV = {
     "MIN_SUPPORTED_VERSION": "1.0.0",
     "STATUS_MESSAGE": "",
     "SLUGBOT_API_KEY": "secret",
+    "DISCORD_BOT_TOKEN": "discord-token",
 }
 
 
@@ -43,6 +44,7 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.status_message, "")
         self.assertEqual(settings.log_level, "INFO")
         self.assertNotIn("secret", repr(settings))
+        self.assertNotIn("discord-token", repr(settings))
 
     def test_accepts_native_values(self):
         settings = Settings.from_env(make_env(STATUS_ENABLED=False, SLOW_POLL_SEC=30))
@@ -50,10 +52,12 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.slow_poll_sec, 30)
 
     def test_missing_variable(self):
-        env = make_env()
-        del env.SLUGBOT_API_KEY
-        with self.assertRaisesRegex(ConfigError, "SLUGBOT_API_KEY"):
-            Settings.from_env(env)
+        for name in ("SLUGBOT_API_KEY", "DISCORD_BOT_TOKEN"):
+            with self.subTest(variable=name):
+                env = make_env()
+                delattr(env, name)
+                with self.assertRaisesRegex(ConfigError, name):
+                    Settings.from_env(env)
 
     def test_invalid_int_and_bool(self):
         with self.assertRaisesRegex(ConfigError, "FAST_POLL_SEC"):

@@ -99,6 +99,7 @@ class Settings:
     status_message: str
     log_level: str
     slugbot_api_key: str = field(repr=False)
+    discord_bot_token: str = field(repr=False)
 
     @classmethod
     def from_env(cls, env: Any) -> Settings:
@@ -122,6 +123,7 @@ class Settings:
             status_message="" if status_message is None else str(status_message),
             log_level=_parse_log_level(env, "LOG_LEVEL"),
             slugbot_api_key=_parse_str(env, "SLUGBOT_API_KEY"),
+            discord_bot_token=_parse_str(env, "DISCORD_BOT_TOKEN"),
         )
 
 

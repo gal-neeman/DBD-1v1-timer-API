@@ -63,7 +63,7 @@
 	},
 	// Private config: `.dev.vars` locally (see .dev.vars.example), `wrangler secret put <NAME>` when deployed.
 	"secrets": {
-		"required": ["SLUGBOT_API_KEY"]
+		"required": ["SLUGBOT_API_KEY", "DISCORD_BOT_TOKEN"]
 	},
 	"env": {
 		// Deploys as Worker `dbd1v1timerapi-staging`.
@@ -89,7 +89,7 @@
 			},
 			// `npx wrangler secret put <NAME> --env staging`
 			"secrets": {
-				"required": ["SLUGBOT_API_KEY"]
+				"required": ["SLUGBOT_API_KEY", "DISCORD_BOT_TOKEN"]
 			}
 		}
 	},

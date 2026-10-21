@@ -17,12 +17,14 @@ All responses are JSON with camelCase fields. Errors use `{"error": {"code": "..
 [wrangler.jsonc](wrangler.jsonc) has two config blocks: the top level (prod, also used by `npm run dev`) and `env.staging`.
 
 - **Public vars** live in `vars` and are committed with their real values. Environments do **not** inherit `vars` from the top level, so a new variable must be added to both blocks.
-- **Secrets** (`SLUGBOT_API_KEY`) are declared under `secrets.required` in each block:
+- **Secrets** (`SLUGBOT_API_KEY`, `DISCORD_BOT_TOKEN`) are declared under `secrets.required` in each block:
   - Local: `cp .dev.vars.example .dev.vars` and fill in values (`.dev.vars*` is gitignored). Optionally add `.dev.vars.staging` for `dev:staging`.
   - Deployed: set per environment. Deploys fail if a required secret is missing.
     ```
     npx wrangler secret put SLUGBOT_API_KEY                # prod
     npx wrangler secret put SLUGBOT_API_KEY --env staging
+    npx wrangler secret put DISCORD_BOT_TOKEN              # prod
+    npx wrangler secret put DISCORD_BOT_TOKEN --env staging
     ```
 
 ## Development
@@ -64,7 +66,7 @@ First deploy of an environment:
    npm run deploy:staging -- --secrets-file .dev.vars.staging
    npm run deploy:prod -- --secrets-file .dev.vars.prod
    ```
-   Later deploys keep existing secrets. To change one, run `npx wrangler secret put SLUGBOT_API_KEY` (add `--env staging` for staging).
+   Later deploys keep existing secrets. To add or change one, run `npx wrangler secret put <NAME>` (add `--env staging` for staging).
 
 ## Layout
 
