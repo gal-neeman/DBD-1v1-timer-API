@@ -1,0 +1,27 @@
+"""Endpoint spec shared by upstream API registries. Paths are templates relative to a base URL."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from urllib.parse import quote, urlencode
+
+
+@dataclass(frozen=True, slots=True)
+class Endpoint:
+    method: str
+    path: str
+    query_params: tuple[str, ...] = ()
+
+    def build_path(self, **params: str) -> str:
+        """Fill the path template, URL-encoding each value. Raises KeyError for a missing param."""
+        encoded = {name: quote(str(value), safe="") for name, value in params.items()}
+        return self.path.format(**encoded)
+
+    def build_query(self, query: dict[str, str] | None) -> str:
+        """Encode query params as '?a=b', or '' if none. Raises ValueError for unknown keys."""
+        if not query:
+            return ""
+        unknown = set(query) - set(self.query_params)
+        if unknown:
+            raise ValueError(f"Unknown query params for {self.path}: {sorted(unknown)}")
+        return "?" + urlencode(query)

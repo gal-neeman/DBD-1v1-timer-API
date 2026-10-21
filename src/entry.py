@@ -6,6 +6,7 @@ from workers import Response, WorkerEntrypoint, fetch
 
 from api.config import get_settings
 from api.context import Context
+from api.discord import DiscordClient
 from api.log import configure_logging
 from api.responses import ApiResponse, json_error
 from api.routing import resolve
@@ -59,7 +60,11 @@ class Default(WorkerEntrypoint):
                 response = resolved
             else:
                 handler, params = resolved
-                ctx = Context(settings, SlugbotClient(settings, _workers_send))
+                ctx = Context(
+                    settings,
+                    SlugbotClient(settings, _workers_send),
+                    DiscordClient(settings, _workers_send),
+                )
                 response = await handler(ctx, params)
         except Exception as exc:
             configure_logging()

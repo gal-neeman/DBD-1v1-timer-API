@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from api.config import Settings
+from api.discord import DiscordClient
 from api.slugbot import SlugbotClient
 
 
@@ -12,3 +13,4 @@ from api.slugbot import SlugbotClient
 class Context:
     settings: Settings
     slugbot: SlugbotClient
+    discord: DiscordClient

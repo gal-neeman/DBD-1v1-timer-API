@@ -7,11 +7,12 @@ from urllib.parse import parse_qs, urlsplit
 from api import handlers
 from api.config import Settings
 from api.context import Context
+from api.discord import DiscordClient
 from api.slugbot import SlugbotClient
 from api.transport import HttpResponse
 from tests.slugbot.test_dtos import MATCH_BATCH_JSON, PLAYER_JSON
 from tests.test_config import make_env
-from tests.test_routing import make_context
+from tests.test_routing import _no_network, make_context
 
 PLAYER_ID = "273849165028374619"
 OPPONENT_ID = "1048372615940283746"
@@ -64,7 +65,7 @@ class FakeSlugbot:
 
 def make_slugbot_context(send):
     settings = Settings.from_env(make_env())
-    return Context(settings, SlugbotClient(settings, send))
+    return Context(settings, SlugbotClient(settings, send), DiscordClient(settings, _no_network))
 
 
 class PlayerDetailsValidationTest(unittest.TestCase):

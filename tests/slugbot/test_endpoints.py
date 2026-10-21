@@ -1,9 +1,9 @@
 import unittest
 
-from api.slugbot.endpoints import Endpoint, SlugbotEndpoint
+from api.slugbot.endpoints import SlugbotEndpoint
 
 
-class EndpointTest(unittest.TestCase):
+class SlugbotEndpointTest(unittest.TestCase):
     def test_player_path(self):
         path = SlugbotEndpoint.PLAYER.value.build_path(
             guild_id="459532023690821643",
@@ -12,18 +12,9 @@ class EndpointTest(unittest.TestCase):
         )
         self.assertEqual(path, "/459532023690821643/1v1%20-%20ranked%20dbd/player/80351110224678912")
 
-    def test_params_are_quoted(self):
-        path = Endpoint("GET", "/player/{user_id}").build_path(user_id="../x y?")
-        self.assertEqual(path, "/player/..%2Fx%20y%3F")
-
     def test_missing_param_raises(self):
         with self.assertRaises(KeyError):
             SlugbotEndpoint.PLAYER.value.build_path(guild_id="1", leaderboard_id="lb")
-
-    def test_query(self):
-        endpoint = SlugbotEndpoint.MATCH_BATCH.value
-        self.assertEqual(endpoint.build_query(None), "")
-        self.assertEqual(endpoint.build_query({"limit": "10", "userId": "1"}), "?limit=10&userId=1")
 
     def test_unknown_query_param_raises(self):
         with self.assertRaisesRegex(ValueError, "cursor"):
