@@ -69,7 +69,9 @@ First deploy of an environment:
 
 ```
 src/entry.py          Worker entrypoint; the only module that imports `workers`
-src/api/              routing, handlers, response DTOs, config, logging
+src/api/              routing, response DTOs, config, logging, input validation
+src/api/handlers/     one module per endpoint: validate input, call the logic, map errors to HTTP responses
+src/api/players/      player logic: match/streak rules (matches.py), DTO mapping (mapping.py), upstream calls (service.py)
 src/api/transport.py  HttpSend interface for outbound HTTP (implemented over `workers.fetch` in entry.py)
 src/api/upstream/     shared base for upstream API clients: Endpoint spec, UpstreamClient (timeout, status/JSON/schema errors, logging)
 src/api/slugbot/      Slugbot client, endpoint registry (endpoints.py) and response DTOs
