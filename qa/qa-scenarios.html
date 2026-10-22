@@ -1,0 +1,1481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>dbd1v1timerapi Launch QA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: one reading column of scenario cards grouped by area, a sticky filter bar, summary first. */
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --fg: #1b1e24;
+  --muted: #5d6470;
+  --line: #d7dae0;
+  --accent: #a3262a;          /* hook red */
+  --accent-soft: #f6e3e3;
+  --pass: #1f7a4a;
+  --pass-soft: #def2e6;
+  --fail: #b42318;
+  --fail-soft: #fde4e1;
+  --skip: #8a6a00;
+  --skip-soft: #f8eecb;
+  --code-bg: #eef0f4;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161b; --surface: #1c1f26; --surface-2: #242832; --fg: #e6e8ec; --muted: #9aa1ad;
+    --line: #323743; --accent: #e5686b; --accent-soft: #3a2224;
+    --pass: #5cc98c; --pass-soft: #1d3326; --fail: #f2837a; --fail-soft: #3d2220;
+    --skip: #e2c15a; --skip-soft: #3a3219; --code-bg: #262a34;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161b; --surface: #1c1f26; --surface-2: #242832; --fg: #e6e8ec; --muted: #9aa1ad;
+  --line: #323743; --accent: #e5686b; --accent-soft: #3a2224;
+  --pass: #5cc98c; --pass-soft: #1d3326; --fail: #f2837a; --fail-soft: #3d2220;
+  --skip: #e2c15a; --skip-soft: #3a3219; --code-bg: #262a34;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.55 var(--font-body);
+}
+.wrap {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+code, pre { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+pre { background: var(--code-bg); padding: 10px 12px; border-radius: 6px; overflow-x: auto; margin: 0; line-height: 1.45; }
+pre code { background: none; padding: 0; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { padding-block: 32px 20px; display: grid; gap: 14px; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+header.top h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.01em; }
+.lede { color: var(--muted); max-width: 68ch; margin: 0; }
+.envs { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; }
+.envs span { color: var(--muted); }
+
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.tile b { display: block; font: 600 24px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
+.tile small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.tile.pass b { color: var(--pass); } .tile.fail b { color: var(--fail); } .tile.skip b { color: var(--skip); }
+.bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; }
+.bar .p { background: var(--pass); } .bar .f { background: var(--fail); } .bar .s { background: var(--skip); }
+
+section.intro { display: grid; gap: 14px; padding-block: 8px 20px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.panel h2 { font-size: 18px; margin-bottom: 8px; }
+.panel ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.panel p { margin: 0 0 8px; }
+.panel details summary { cursor: pointer; font-weight: 600; }
+.panel details[open] summary { margin-bottom: 8px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+
+.filters {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  padding-block: 10px; display: grid; gap: 8px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+  padding: 3px 10px; font-size: 13px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.filters input[type="search"], .filters select {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 5px 9px; font-size: 14px;
+}
+.filters input[type="search"] { flex: 1 1 220px; min-width: 0; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 6px;
+  padding: 5px 11px; font-size: 13px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.danger[data-armed="true"] { background: var(--fail); color: var(--surface); border-color: var(--fail); }
+.count { color: var(--muted); font-size: 13px; margin-left: auto; font-variant-numeric: tabular-nums; }
+
+main { display: grid; gap: 28px; padding-block: 20px 60px; }
+.area { display: grid; gap: 10px; }
+.area > h2 { font-size: 20px; display: flex; align-items: baseline; gap: 10px; }
+.area > h2 small { font: 400 13px var(--font-body); color: var(--muted); }
+.area > p { margin: -4px 0 4px; color: var(--muted); font-size: 14px; max-width: 75ch; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line);
+  border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0;
+}
+.card[data-status="pass"] { border-left-color: var(--pass); }
+.card[data-status="fail"] { border-left-color: var(--fail); }
+.card[data-status="skip"] { border-left-color: var(--skip); }
+.card-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.sid { font: 500 13px var(--font-mono); color: var(--accent); }
+.card-head h3 { font: 600 16px/1.35 var(--font-body); flex: 1 1 300px; min-width: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font: 500 11px/1 var(--font-mono); padding: 4px 6px; border-radius: 4px; background: var(--surface-2); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.tag.agent { background: var(--accent-soft); color: var(--accent); }
+.block { display: grid; gap: 4px; min-width: 0; }
+.block h4 { margin: 0; font: 600 11px/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.block ul, .block ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.block li { min-width: 0; }
+.block li > pre { margin-top: 4px; }
+.block.expected { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
+details.more > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+details.more[open] > summary { margin-bottom: 8px; }
+details.more .inner { display: grid; gap: 10px; }
+.agentnote { font-size: 13px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+.verdict { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.verdict button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 3px 12px; font-size: 13px; cursor: pointer; }
+.verdict button[data-v="pass"][aria-pressed="true"] { background: var(--pass-soft); border-color: var(--pass); color: var(--pass); font-weight: 600; }
+.verdict button[data-v="fail"][aria-pressed="true"] { background: var(--fail-soft); border-color: var(--fail); color: var(--fail); font-weight: 600; }
+.verdict button[data-v="skip"][aria-pressed="true"] { background: var(--skip-soft); border-color: var(--skip); color: var(--skip); font-weight: 600; }
+.verdict textarea { flex: 1 1 260px; min-width: 0; min-height: 32px; height: 32px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 13px; background: var(--bg); }
+.empty { color: var(--muted); text-align: center; padding: 40px 0; }
+#exportBox { width: 100%; min-height: 160px; font: 12px var(--font-mono); border: 1px solid var(--line); border-radius: 6px; padding: 8px; background: var(--surface); }
+.toast { font-size: 13px; color: var(--pass); }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color 0.15s; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Pre-launch QA · Cloudflare Python Worker</div>
+    <h1>dbd1v1timerapi Launch QA</h1>
+    <p class="lede">Every scenario to check before the first prod deploy. Each card says what to set up, what to do, and what you should see. Mark it Pass, Fail or Skip as you go. Marks and notes stay in this browser only. The <code>/qa</code> Claude command reads the same list from this file and runs it on its own.</p>
+    <div class="envs">
+      <div><span>Staging</span> <a href="https://dbd1v1-api-staging.truuehsoft.com/api/v1/status">dbd1v1-api-staging.truuehsoft.com</a></div>
+      <div><span>Prod</span> <a href="https://dbd1v1-api.truuehsoft.com/api/v1/status">dbd1v1-api.truuehsoft.com</a></div>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div class="bar" id="bar" aria-hidden="true"></div>
+  </header>
+
+  <section class="intro">
+    <div class="two">
+      <div class="panel">
+        <h2>What you need</h2>
+        <ul>
+          <li><code>uv sync</code> and <code>npm install</code> done, so <code>npm test</code> runs.</li>
+          <li>The current commit deployed to staging: <code>npm run deploy:staging</code>.</li>
+          <li>Wrangler logged in to the account that owns <code>truuehsoft.com</code>, for <code>wrangler tail</code> and <code>secret list</code>.</li>
+          <li><b>KNOWN_PLAYER_ID</b>: a Discord ID that has ranked matches on the 1v1 leaderboard.</li>
+          <li><b>UNRANKED_ID</b>: a valid Discord ID with no ranked data, e.g. a fresh alt account.</li>
+          <li><b>STREAK_PLAYER_ID</b> (optional): a player currently on 10+ wins in a row.</li>
+          <li><code>.dev.vars.prod</code> holding real <code>SLUGBOT_API_KEY</code> and <code>DISCORD_BOT_TOKEN</code> for the first prod deploy.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Watching logs</h2>
+        <p>Run this in a second terminal while you test staging. Each request prints one event, and its <code>logs</code> array holds the JSON lines the Worker wrote.</p>
+        <pre><code>npx wrangler tail --env staging --format json</code></pre>
+        <p style="margin-top:8px">Staging logs at <code>DEBUG</code> and caches Discord names for <b>60 s</b>. Prod logs at <code>INFO</code> and caches for <b>18000 s</b> (5 h).</p>
+      </div>
+    </div>
+    <div class="panel">
+      <details>
+        <summary>Unit-level harness: how to build the fake scenarios yourself</summary>
+        <p>Scenarios tagged <code>unit</code> drive the real handlers with the fakes from <code>tests/</code>, so you can force upstream failures that can't be produced on demand against real Slugbot or Discord. Start a shell from the repo root with <code>uv run python</code> and paste this:</p>
+<pre><code>import asyncio, json, logging
+import tests  # puts src/ on sys.path
+from tests.test_handlers import FakeSlugbot, FakeDiscord, _match, _page, _wins, PLAYER_ID, OPPONENT_ID
+from tests.slugbot.test_dtos import PLAYER_JSON, MATCH_BATCH_JSON
+from tests.discord.test_dtos import USER_JSON
+from tests.test_config import make_env
+from tests.fakes import MemoryCache
+from api import handlers
+from api.config import Settings
+from api.context import Context
+from api.slugbot import SlugbotClient
+from api.discord import DiscordClient
+from api.log import JsonFormatter
+
+h = logging.StreamHandler(); h.setFormatter(JsonFormatter())
+logging.getLogger().handlers[:] = [h]; logging.getLogger().setLevel("DEBUG")
+logging.getLogger("asyncio").setLevel("WARNING")
+
+def call(slugbot, discord=None, cache=None, player_id=PLAYER_ID, **env):
+    s = Settings.from_env(make_env(**env))
+    ctx = Context(s, SlugbotClient(s, slugbot), DiscordClient(s, discord or FakeDiscord()),
+                  cache if cache is not None else MemoryCache())
+    r = asyncio.run(handlers.get_player_details(ctx, {"player_id": player_id}))
+    print(r.status, r.all_headers()); print(json.dumps(json.loads(r.render()), indent=2))
+    return r</code></pre>
+        <p style="margin-top:8px"><code>_match(ts, won)</code> builds a 1v1 between <code>PLAYER_ID</code> (team 0) and <code>OPPONENT_ID</code> (team 1). <code>_page(matches, next_cursor)</code> builds a batch page. <code>FakeSlugbot(player=(status, body), batches={cursor: (status, body)}, error=exc)</code>. <code>FakeDiscord(users={id: (status, body) or exc})</code>. <code>MemoryCache(entries={...}, error=exc)</code>.</p>
+        <p>Scenarios that go through the Worker entrypoint (config errors, access log, unhandled errors) also need fake <code>workers</code> and <code>js</code> modules, because <code>src/entry.py</code> imports them. Paste this after the block above:</p>
+<pre><code>import sys, types
+class Response:
+    def __init__(self, body, status=200, headers=None):
+        self.body, self.status, self.headers = body, status, headers or {}
+        self.js_object = self
+class WorkerEntrypoint:
+    def __init__(self, env): self.env = env
+async def _no_fetch(*a, **k): raise RuntimeError("no network in harness")
+class _NoCaches:
+    async def open(self, name): raise RuntimeError("no cache in harness")
+sys.modules["workers"] = types.SimpleNamespace(Response=Response, WorkerEntrypoint=WorkerEntrypoint, fetch=_no_fetch)
+sys.modules["js"] = types.SimpleNamespace(caches=_NoCaches())
+import tests, entry
+from api import config
+from tests.test_config import make_env
+
+class Req:
+    def __init__(self, method, path, headers=None):
+        self.method, self.url = method, "https://qa.local" + path
+        self.headers = headers if headers is not None else {"user-agent": "qa-harness", "cf-ray": "qa-ray"}
+        self.cf = types.SimpleNamespace(country="IL", asn=12345, asOrganization="QA Net")
+
+def run(method, path, **env):
+    config._cached_settings = None  # settings are cached per isolate; reset between runs
+    r = asyncio.run(entry.Default(make_env(**env)).fetch(Req(method, path)))
+    print(r.status, r.headers, r.body)
+    return r</code></pre>
+        <p style="margin-top:8px">Pass <code>NAME=None</code> to <code>make_env</code> to remove a variable.</p>
+      </details>
+    </div>
+  </section>
+
+  <div class="filters" id="filters">
+    <div class="row" id="areaChips" role="group" aria-label="Filter by area"></div>
+    <div class="row">
+      <input type="search" id="q" placeholder="Search IDs, titles, expected results" aria-label="Search scenarios">
+      <select id="envSel" aria-label="Where you run it">
+        <option value="">Any environment</option>
+        <option value="unit">Unit harness</option>
+        <option value="static">Config / repo</option>
+        <option value="staging">Staging</option>
+        <option value="prod">Prod</option>
+      </select>
+      <select id="statusSel" aria-label="Filter by result">
+        <option value="">Any result</option>
+        <option value="open">Not marked yet</option>
+        <option value="pass">Pass</option>
+        <option value="fail">Fail</option>
+        <option value="skip">Skip</option>
+      </select>
+    </div>
+    <div class="row">
+      <button class="btn" id="expandAll" type="button">Expand all</button>
+      <button class="btn" id="collapseAll" type="button">Collapse all</button>
+      <button class="btn" id="exportBtn" type="button">Copy results as Markdown</button>
+      <button class="btn danger" id="resetBtn" type="button" data-armed="false">Clear my marks</button>
+      <span class="toast" id="toast" role="status"></span>
+      <span class="count" id="count"></span>
+    </div>
+    <textarea id="exportBox" hidden readonly aria-label="Exported results"></textarea>
+  </div>
+
+  <main id="list"></main>
+</div>
+
+<!--
+  Scenario data. This JSON is the single source of truth: the page renders from it and the
+  /qa command (.claude/commands/qa.md) parses it. Keep IDs stable; add new ones at the end of an area.
+  Fields: id, area, title, env[], agent ("harness" | "staging" | "static" | "manual", joined with "+"),
+  prereqs[], setup[], steps[], expected[], verify[], agentNotes.
+  List items are strings (backticks render as code) or {"code": "..."} for a code block.
+-->
+<script type="application/json" id="qa-scenarios">
+{
+  "version": 1,
+  "stagingBaseUrl": "https://dbd1v1-api-staging.truuehsoft.com",
+  "prodBaseUrl": "https://dbd1v1-api.truuehsoft.com",
+  "areas": [
+    {"key": "TST", "name": "Test suite", "blurb": "The existing unit tests are the floor. Nothing else matters if these fail."},
+    {"key": "DEP", "name": "Deploy & environments", "blurb": "Secrets, domains and the two config blocks in wrangler.jsonc."},
+    {"key": "CFG", "name": "Config parsing", "blurb": "How src/api/config.py reacts to missing, malformed and out-of-range vars."},
+    {"key": "RT", "name": "Routing", "blurb": "The route table in src/api/routing.py: 404s, 405s, trailing slashes, content type."},
+    {"key": "ST", "name": "Status endpoint", "blurb": "GET /api/v1/status, which clients poll for config."},
+    {"key": "VAL", "name": "Player ID validation", "blurb": "Bad IDs must be rejected before any upstream call."},
+    {"key": "PLR", "name": "Player details", "blurb": "GET /api/v1/players/{id}: field mapping, ordering and edge cases."},
+    {"key": "STK", "name": "Win streak paging", "blurb": "The streak keeps reading older Slugbot pages until the first loss."},
+    {"key": "SLG", "name": "Slugbot failures", "blurb": "Every way Slugbot can fail, and the status code each one maps to."},
+    {"key": "DSC", "name": "Discord opponent names", "blurb": "Opponent names come from Discord. A failed lookup shows \"Unknown\" and never fails the request."},
+    {"key": "CCH", "name": "Name cache", "blurb": "Discord names are cached in a named Workers Cache API cache, per data center, with a per-env TTL."},
+    {"key": "LOG", "name": "Logging", "blurb": "One JSON line per event, an access line per request, nothing secret."},
+    {"key": "PRD", "name": "Prod launch", "blurb": "Run these on prod right after the first deploy. They are manual on purpose."}
+  ],
+  "scenarios": [
+    {
+      "id": "TST-01", "area": "TST", "title": "Unit test suite passes",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": ["`uv sync` done"],
+      "setup": ["Nothing beyond a clean checkout of the commit you plan to deploy."],
+      "steps": ["Run `npm test`"],
+      "expected": ["Ends with `OK`, with 0 failures and 0 errors", "No test is reported as skipped unexpectedly"],
+      "verify": ["Read the last lines of the unittest output"],
+      "agentNotes": "Run first and record the test count as the baseline."
+    },
+
+    {
+      "id": "DEP-01", "area": "DEP", "title": "Staging and prod declare the same vars, differing only where intended",
+      "env": ["static"], "agent": "static",
+      "prereqs": [],
+      "setup": ["Open `wrangler.jsonc`"],
+      "steps": ["Compare the top-level `vars` (prod) with `env.staging.vars`", "Compare `secrets.required` in both blocks"],
+      "expected": [
+        "Both blocks have exactly the same 16 var names",
+        "Only three values differ: `DISCORD_NAME_CACHE_TTL_SEC` (prod `18000`, staging `60`), `CACHE_NAME` (prod `dbd1v1timerapi`, staging `dbd1v1timerapi-staging`) and `LOG_LEVEL` (prod `INFO`, staging `DEBUG`)",
+        "Both `secrets.required` lists are `SLUGBOT_API_KEY`, `DISCORD_BOT_TOKEN`"
+      ],
+      "verify": ["A var missing from one block makes that environment return 500 on every request (see CFG-01)"],
+      "agentNotes": "Parse wrangler.jsonc after stripping comments and diff the two dicts."
+    },
+    {
+      "id": "DEP-02", "area": "DEP", "title": "Staging has both secrets",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["Wrangler logged in"],
+      "setup": [],
+      "steps": ["Run `npx wrangler secret list --env staging`"],
+      "expected": ["The list contains `SLUGBOT_API_KEY` and `DISCORD_BOT_TOKEN`"],
+      "verify": ["Only names are listed, never values"],
+      "agentNotes": "Read-only command. Report names only."
+    },
+    {
+      "id": "DEP-03", "area": "DEP", "title": "Prod secrets ready for the first deploy",
+      "env": ["static", "prod"], "agent": "static+manual",
+      "prereqs": [],
+      "setup": ["`.dev.vars.prod` in the repo root (gitignored)"],
+      "steps": [
+        "Check that `.dev.vars.prod` defines `SLUGBOT_API_KEY` and `DISCORD_BOT_TOKEN` with real values, not `changeme`",
+        "Plan the first prod deploy as `npm run deploy:prod -- --secrets-file .dev.vars.prod`",
+        "After that deploy, run `npx wrangler secret list`"
+      ],
+      "expected": ["Both keys are present and not placeholders", "After deploy, the prod secret list shows both names"],
+      "verify": ["Without the secrets file, the first deploy fails the required-secret check"],
+      "agentNotes": "Check key names and that values are not empty or 'changeme'. Never print the values. The post-deploy part is manual."
+    },
+    {
+      "id": "DEP-04", "area": "DEP", "title": "Staging custom domain serves the Worker",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["Staging deployed"],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/status"}],
+      "expected": ["`HTTP/2 200` over a valid TLS certificate", "`content-type: application/json; charset=utf-8`", "A JSON body (see ST-01)"],
+      "verify": ["curl prints no certificate warning"],
+      "agentNotes": ""
+    },
+    {
+      "id": "DEP-05", "area": "DEP", "title": "workers.dev and preview URLs are off",
+      "env": ["static", "staging"], "agent": "static+manual",
+      "prereqs": [],
+      "setup": [],
+      "steps": [
+        "Check `workers_dev: false` and `preview_urls: false` in both blocks of `wrangler.jsonc`",
+        "In the Cloudflare dashboard, open Workers & Pages > dbd1v1timerapi-staging > Settings > Domains & Routes"
+      ],
+      "expected": ["Config has both flags false in both blocks", "The dashboard lists only the custom domain, with workers.dev disabled"],
+      "verify": [],
+      "agentNotes": "Static check only. The dashboard part is manual."
+    },
+    {
+      "id": "DEP-06", "area": "DEP", "title": "Prod hostname is free for the custom domain",
+      "env": ["prod"], "agent": "manual",
+      "prereqs": [],
+      "setup": [],
+      "steps": ["In the Cloudflare dashboard for `truuehsoft.com`, open DNS > Records and search for `dbd1v1-api`"],
+      "expected": ["No CNAME record exists for `dbd1v1-api.truuehsoft.com` (Cloudflare creates the record on deploy)", "The zone is active in the same account as the Worker"],
+      "verify": [],
+      "agentNotes": "Manual: needs the dashboard."
+    },
+    {
+      "id": "DEP-07", "area": "DEP", "title": "Staging runs the commit under test",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": ["Run `npx wrangler deployments list --env staging`", "Compare the newest deployment time with `git log -1 --format=%cI`"],
+      "expected": ["The newest staging deployment is later than the HEAD commit"],
+      "verify": ["If it is older, redeploy staging before running the staging scenarios"],
+      "agentNotes": "Read-only. If staging is older than HEAD, say so at the top of the report, because staging results then describe older code."
+    },
+    {
+      "id": "DEP-08", "area": "DEP", "title": "Observability on, invocation logs off",
+      "env": ["static", "staging"], "agent": "static+staging",
+      "prereqs": ["`wrangler tail` running"],
+      "setup": [],
+      "steps": ["Check `observability.enabled: true` and `observability.logs.invocation_logs: false` in `wrangler.jsonc`", "Make one request to staging while tailing"],
+      "expected": ["Config matches", "The tail event contains only the Worker's own JSON log lines, with no separate invocation log entry"],
+      "verify": [],
+      "agentNotes": ""
+    },
+
+    {
+      "id": "CFG-01", "area": "CFG", "title": "A missing required var returns 500, not a crash",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": ["Entrypoint harness"],
+      "setup": ["`run(\"GET\", \"/api/v1/status\", DBDL_GUILD_ID=None)`"],
+      "steps": ["Run it and read the printed response and log lines"],
+      "expected": [
+        "Status `500`, body `{\"error\":{\"code\":\"internal_error\",\"message\":\"Internal server error\"}}`",
+        "An `ERROR` log `Unhandled error` with `reason` `ConfigError: Missing environment variable: DBDL_GUILD_ID` and an `exc` traceback",
+        "The access log line still appears, with `status: 500`"
+      ],
+      "verify": ["Repeat with each required var: DBDL_GUILD_ID, LEADERBOARD_ID, SLUGBOT_BASE_URL, SLUGBOT_TIMEOUT_SEC, DISCORD_BASE_URL, DISCORD_TIMEOUT_SEC, DISCORD_NAME_CACHE_TTL_SEC, CACHE_NAME, STATUS_ENABLED, FAST_POLL_SEC, SLOW_POLL_SEC, FAST_POLL_CAP_SEC, LATEST_VERSION, MIN_SUPPORTED_VERSION, SLUGBOT_API_KEY, DISCORD_BOT_TOKEN"],
+      "agentNotes": "Loop over every required var."
+    },
+    {
+      "id": "CFG-02", "area": "CFG", "title": "A failed config parse is retried on the next request",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Set `config._cached_settings = None`, then call `config.get_settings(make_env(CACHE_NAME=None))` (it raises), then `config.get_settings(make_env())`"],
+      "steps": ["Run the three statements in order"],
+      "expected": ["The first call raises `ConfigError`", "The second call returns `Settings` (the failure was not cached)", "A third call with a different env returns the same object (good settings are cached per isolate)"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CFG-03", "area": "CFG", "title": "A blank or whitespace-only var counts as missing",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`Settings.from_env(make_env(LATEST_VERSION=\"   \"))`"],
+      "steps": ["Run it"],
+      "expected": ["Raises `ConfigError: Missing environment variable: LATEST_VERSION`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CFG-04", "area": "CFG", "title": "Out-of-range numbers are clamped with a warning",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Build `Settings.from_env(make_env(...))` with each override below, one at a time"],
+      "steps": [
+        "`FAST_POLL_SEC=\"5\"` → 10, and `\"999\"` → 300",
+        "`SLOW_POLL_SEC=\"1\"` → 30, and `\"99999\"` → 3600",
+        "`FAST_POLL_CAP_SEC=\"-1\"` → 0, and `\"601\"` → 600",
+        "`SLUGBOT_TIMEOUT_SEC=\"0\"` → 1, and `\"100\"` → 30",
+        "`DISCORD_TIMEOUT_SEC=\"0\"` → 1, and `\"100\"` → 30",
+        "`DISCORD_NAME_CACHE_TTL_SEC=\"10\"` → 60, and `\"9999999\"` → 604800"
+      ],
+      "expected": [
+        "Each field holds the clamped value shown",
+        "Each clamp logs a `WARNING` `Config value out of range, clamped` with `variable`, `value`, `clamped`, `min` and `max`",
+        "In-range values (for example the real staging and prod values) log no warning"
+      ],
+      "verify": [],
+      "agentNotes": "Assert both bounds of every range against the *_RANGE constants in src/api/config.py."
+    },
+    {
+      "id": "CFG-05", "area": "CFG", "title": "Non-integer numbers are rejected",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`Settings.from_env(make_env(FAST_POLL_SEC=\"abc\"))`, then the same with `\"1.5\"`"],
+      "steps": ["Run both"],
+      "expected": ["Both raise `ConfigError`, e.g. `FAST_POLL_SEC must be an integer, got 'abc'`", "Through the entrypoint (`run(...)`) this is a 500 `internal_error`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CFG-06", "area": "CFG", "title": "STATUS_ENABLED accepts the documented boolean spellings only",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`Settings.from_env(make_env(STATUS_ENABLED=v)).status_enabled` for each value"],
+      "steps": ["Try `1`, `true`, `YES`, ` on `, `0`, `false`, `No`, `off`, then `maybe`"],
+      "expected": ["The first four give `True`, the next four give `False` (case and surrounding spaces ignored)", "`maybe` raises `ConfigError: STATUS_ENABLED must be a boolean, got 'maybe'`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CFG-07", "area": "CFG", "title": "LOG_LEVEL falls back to INFO when unknown",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Read `Settings.from_env(make_env(LOG_LEVEL=v)).log_level`"],
+      "steps": ["Try `debug`, `warn`, `verbose` and `None` (unset)"],
+      "expected": ["`DEBUG`, `WARN`, `INFO`, `INFO`", "Only `verbose` logs a `WARNING` `Unknown log level, falling back to INFO`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CFG-08", "area": "CFG", "title": "STATUS_MESSAGE may be empty or unset",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Read `status_message` with `STATUS_MESSAGE=\"\"`, `None` and `\"Maintenance at 18:00 UTC\"`"],
+      "steps": ["Build the three settings"],
+      "expected": ["`\"\"`, `\"\"` and the message verbatim", "None of them raises"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CFG-09", "area": "CFG", "title": "Upstream URLs are built correctly from the real vars",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": [
+        "Use the real prod values: `SLUGBOT_BASE_URL=\"https://api.slugbot.xyz/pvplb/\"`, `DBDL_GUILD_ID=\"459532023690821643\"`, `LEADERBOARD_ID=\"1v1 - ranked dbd\"`, `DISCORD_BASE_URL=\"https://discord.com/api/v10\"`",
+        "`s = FakeSlugbot(); call(s, SLUGBOT_BASE_URL=..., DBDL_GUILD_ID=..., LEADERBOARD_ID=...)` and print `s.urls`"
+      ],
+      "steps": ["Run it"],
+      "expected": [
+        "Player URL `https://api.slugbot.xyz/pvplb/459532023690821643/1v1%20-%20ranked%20dbd/player/273849165028374619`, with a single slash after `pvplb` and spaces encoded as `%20`",
+        "Batch URL `https://api.slugbot.xyz/pvplb/459532023690821643/1v1%20-%20ranked%20dbd/match/batch?userId=273849165028374619&limit=10&complete=true`",
+        "Discord URL `https://discord.com/api/v10/users/1048372615940283746`"
+      ],
+      "verify": [],
+      "agentNotes": "Pass a FakeDiscord too and print its urls."
+    },
+    {
+      "id": "CFG-10", "area": "CFG", "title": "Secrets never show in the settings repr",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`repr(Settings.from_env(make_env(SLUGBOT_API_KEY=\"sk-qa-123\", DISCORD_BOT_TOKEN=\"tok-qa-456\")))`"],
+      "steps": ["Print it"],
+      "expected": ["The output contains neither `sk-qa-123` nor `tok-qa-456`, nor the field names `slugbot_api_key` and `discord_bot_token`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+
+    {
+      "id": "RT-01", "area": "RT", "title": "Unknown paths return a JSON 404",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/nope\ncurl -sS -i https://dbd1v1-api-staging.truuehsoft.com/"}],
+      "expected": ["`404` with `{\"error\":{\"code\":\"not_found\",\"message\":\"No route for /nope\"}}`", "`/` gives `No route for /`"],
+      "verify": ["Harness: `resolve(\"GET\", \"/nope\")` from `api.routing`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "RT-02", "area": "RT", "title": "Trailing slashes and query strings are accepted",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/status/\ncurl -sS -i \"https://dbd1v1-api-staging.truuehsoft.com/api/v1/status?client=1.7.0\""}],
+      "expected": ["Both return `200` with the status body"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "RT-03", "area": "RT", "title": "Wrong methods return 405 with an Allow header",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i -X POST https://dbd1v1-api-staging.truuehsoft.com/api/v1/status\ncurl -sS -i -X DELETE https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/80351110224678912\ncurl -sS -i -X PUT https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/80351110224678912"}],
+      "expected": [
+        "Each returns `405` with header `Allow: GET`",
+        "Body `{\"error\":{\"code\":\"method_not_allowed\",\"message\":\"Method POST not allowed for /api/v1/status\"}}` (method and path vary)",
+        "No upstream call is made (no Slugbot log lines in the tail)"
+      ],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "RT-04", "area": "RT", "title": "HEAD requests return 405 (current behavior)",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -I https://dbd1v1-api-staging.truuehsoft.com/api/v1/status"}],
+      "expected": ["`405` with `Allow: GET`. Only GET routes exist. If a client or uptime monitor uses HEAD, decide whether that is acceptable before launch."],
+      "verify": [],
+      "agentNotes": "Report the actual status. Cloudflare could in theory turn HEAD into GET, so report what you see."
+    },
+    {
+      "id": "RT-05", "area": "RT", "title": "Nested or empty player paths are 404, not a player lookup",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/80351110224678912/extra\ncurl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/"}],
+      "expected": ["Both `404 not_found`", "The second reports `No route for /api/v1/players` (the trailing slash is stripped)"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "RT-06", "area": "RT", "title": "Paths are case-sensitive",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/API/V1/STATUS"}],
+      "expected": ["`404 not_found`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "RT-07", "area": "RT", "title": "Every response is JSON with a charset",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": ["Look at the `content-type` header on the 200, 400, 404 and 405 responses from the other scenarios"],
+      "expected": ["Always `application/json; charset=utf-8`", "Every body parses as JSON"],
+      "verify": [],
+      "agentNotes": "Check it across all staging responses you collected."
+    },
+
+    {
+      "id": "ST-01", "area": "ST", "title": "Status returns the configured client settings",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS https://dbd1v1-api-staging.truuehsoft.com/api/v1/status"}],
+      "expected": ["Exactly `{\"statusEnabled\":true,\"fastPollSec\":20,\"slowPollSec\":90,\"fastPollCapSec\":120,\"latestVersion\":\"1.7.0\",\"minSupportedVersion\":\"1.7.0\",\"statusMessage\":\"\"}`", "camelCase keys, numbers as numbers, the boolean as a boolean"],
+      "verify": ["Values must match `env.staging.vars` in wrangler.jsonc. If someone changed them, compare against the file, not this card."],
+      "agentNotes": "Compare against the parsed wrangler.jsonc staging vars, not against hard-coded values."
+    },
+    {
+      "id": "ST-02", "area": "ST", "title": "Status is never cached",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/status"}, "Repeat three times"],
+      "expected": ["Header `cache-control: no-store`", "Each request produces its own access log line in the tail, so none were served from cache", "No `cf-cache-status: HIT`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "ST-03", "area": "ST", "title": "Status makes no upstream or cache calls",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`from tests.test_routing import make_context` (its clients fail on any network call)", "`asyncio.run(handlers.get_status(make_context(), {}))`"],
+      "steps": ["Run it"],
+      "expected": ["`200`, no AssertionError about an unexpected upstream call, and the MemoryCache has no puts", "So status keeps working when Slugbot or Discord is down"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "ST-04", "area": "ST", "title": "Status reflects maintenance settings",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Build settings with `STATUS_ENABLED=\"false\"`, `STATUS_MESSAGE=\"Maintenance at 18:00 UTC\"`, `MIN_SUPPORTED_VERSION=\"1.8.0\"` and call `handlers.get_status`"],
+      "steps": ["Render the body"],
+      "expected": ["`statusEnabled: false`, `statusMessage: \"Maintenance at 18:00 UTC\"`, `minSupportedVersion: \"1.8.0\"`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+
+    {
+      "id": "VAL-01", "area": "VAL", "title": "Malformed player IDs are rejected with 400 before any upstream call",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": ["IDs: `abc-123`, `1234567890123456` (16 digits), `123456789012345678901` (21 digits), `18446744073709551616` (above uint64), `01234567890123456` (leading zero), `-80351110224678912`, `80351110224678912%20` (encoded trailing space), `١٢٣٤٥٦٧٨٩٠١٢٣٤٥٦٧` (Arabic-Indic digits, URL-encode for curl)"],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/abc-123"}, "Repeat for each ID"],
+      "expected": ["Each returns `400` with `{\"error\":{\"code\":\"invalid_player_id\",\"message\":\"player_id must be a Discord user ID\"}}`", "No Slugbot or Discord log lines for these requests"],
+      "verify": ["Harness: call with `tests.test_routing.make_context()`, whose clients raise on any network use"],
+      "agentNotes": ""
+    },
+    {
+      "id": "VAL-02", "area": "VAL", "title": "Boundary-valid IDs pass validation",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": ["IDs: `10000000000000000` (17 digits, smallest), `1234567890123456789` (19 digits), `18446744073709551615` (uint64 max)"],
+      "steps": ["Harness: `call(FakeSlugbot(), player_id=...)`", "Staging: curl each one"],
+      "expected": ["Harness: `200`", "Staging: never `400`. A `404 player_not_found` is fine for IDs nobody owns."],
+      "verify": [],
+      "agentNotes": ""
+    },
+
+    {
+      "id": "PLR-01", "area": "PLR", "title": "A real ranked player returns full details",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["KNOWN_PLAYER_ID"],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<KNOWN_PLAYER_ID>"}],
+      "expected": [
+        "`200` with keys `playerName`, `seasonWinrate`, `currentStreak`, `currentRank`, `currentPoints`, `lastMatches`",
+        "`lastMatches` has at most 10 entries, newest `matchDate` first, each date ISO 8601 ending in `Z`",
+        "Each match has `opponentName`, `pointsGained` (negative on losses), `matchDate`, `isWin`, `playerScore`, `opponentScore`, `playerRankBefore`, `opponentRankBefore`",
+        "`playerName`, rank and points match what the Slugbot leaderboard shows for this player in Discord",
+        "`seasonWinrate` is between 0 and 100 with at most 2 decimals"
+      ],
+      "verify": ["Cross-check the last 2-3 matches against the match history in the DBDLeague Discord"],
+      "agentNotes": "Assert the shape and invariants: sorted dates, signs of pointsGained match isWin, isWin=true matches have playerScore > opponentScore when scores are present, and currentStreak equals the count of leading isWin=true (or is greater when all 10 are wins)."
+    },
+    {
+      "id": "PLR-02", "area": "PLR", "title": "Fields map exactly from Slugbot data",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`call(FakeSlugbot(player=(200, PLAYER_JSON), batches={None: (200, MATCH_BATCH_JSON | {\"paging\": {\"nextCursor\": None, \"hasNextPage\": False}})}))`"],
+      "steps": ["Run it"],
+      "expected": [
+        "`playerName: \"TestPlayer\"`, `seasonWinrate: 87.5` (7 of 8), `currentStreak: 1`, `currentRank: 1`, `currentPoints: 30.10524021259957`",
+        "`lastMatches[0]` is `{\"opponentName\":\"Nelly\",\"pointsGained\":7.360593541613343,\"matchDate\":\"2026-10-19T08:22:18.435000Z\",\"isWin\":true,\"playerScore\":2,\"opponentScore\":0,\"playerRankBefore\":667,\"opponentRankBefore\":3972}`"
+      ],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "PLR-03", "area": "PLR", "title": "The view flips correctly when the player is on team 1",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Use `MATCH_BATCH_JSON` as is (team 0 won 2-0) but request details for the team-1 player `1048372615940283746`"],
+      "steps": ["`call(FakeSlugbot(batches={None: (200, ...)}), player_id=\"1048372615940283746\")`"],
+      "expected": ["`isWin: false`, `playerScore: 0`, `opponentScore: 2`", "`pointsGained: -7.360593541613343`", "`playerRankBefore: 3972`, `opponentRankBefore: 667`", "`currentStreak: 0`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "PLR-04", "area": "PLR", "title": "Winrate rounds to 2 decimals and handles 0 matches",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Player bodies: `PLAYER_JSON | {\"matchesWon\": 2, \"matchesPlayed\": 3}` and `PLAYER_JSON | {\"matchesWon\": 0, \"matchesPlayed\": 0}`"],
+      "steps": ["Call once with each"],
+      "expected": ["`seasonWinrate: 66.67`", "`seasonWinrate: 0.0` with no division error"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "PLR-05", "area": "PLR", "title": "Matches come back newest first, at most 10",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Batch with timestamps in the order 3000 (loss), 4000 (win), 1000 (win), 5000 (win)"],
+      "steps": ["`call(FakeSlugbot(batches={None: (200, _page([_match(3000, False), _match(4000, True), _match(1000, True), _match(5000, True)]))}))`"],
+      "expected": ["`isWin` order `[true, true, false, true]`", "`currentStreak: 2`", "Exactly one batch call, because a loss is on the first page"],
+      "verify": [],
+      "agentNotes": "Also check that a 12-match page returns only 10 lastMatches. If it returns 12, report it as a finding, not as a harness bug: the code relies on Slugbot's limit=10."
+    },
+    {
+      "id": "PLR-06", "area": "PLR", "title": "Unreported scores are null",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A match with `\"declaredResults\": {}`"],
+      "steps": ["Call with that page"],
+      "expected": ["`playerScore: null` and `opponentScore: null`, while `isWin` still follows `winTeam`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "PLR-07", "area": "PLR", "title": "Matches without the player, or without an opponent, are skipped",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page with: (a) a match whose participants don't include PLAYER_ID, (b) a match where both participants have the same `teamId`, (c) a normal loss"],
+      "steps": ["Call with that page"],
+      "expected": ["`lastMatches` has only the normal loss", "`currentStreak: 0`", "No 500"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "PLR-08", "area": "PLR", "title": "A player with no matches",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`FakeSlugbot(batches={None: (200, _page([]))})` and a FakeDiscord you can inspect"],
+      "steps": ["Call it"],
+      "expected": ["`200`, `lastMatches: []`, `currentStreak: 0`", "FakeDiscord got no calls"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "PLR-09", "area": "PLR", "title": "Slugbot requests carry auth and the right query",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Wrap a FakeSlugbot in a send function that also records `headers`"],
+      "steps": ["Call once"],
+      "expected": ["Two GETs: `/player/<id>` and `/match/batch?userId=<id>&limit=10&complete=true`", "Headers `Authorization: Bearer <SLUGBOT_API_KEY>` and `Accept: application/json`", "The two calls start in parallel, not one after the other"],
+      "verify": [],
+      "agentNotes": "For parallelism, make the fake await a short asyncio.sleep and check that both calls started before either finished."
+    },
+    {
+      "id": "PLR-10", "area": "PLR", "title": "Player responses carry no cache header",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["KNOWN_PLAYER_ID"],
+      "setup": [],
+      "steps": ["Look at the headers from PLR-01"],
+      "expected": ["No `cache-control` header, and no `cf-cache-status: HIT` on repeat requests, so every request reaches the Worker"],
+      "verify": [],
+      "agentNotes": ""
+    },
+
+    {
+      "id": "STK-01", "area": "STK", "title": "Newest match lost: streak 0 and no extra pages",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page: `[_match(2000, False), _match(1000, True)]` with `next_cursor=900`"],
+      "steps": ["Call and count `s.batch_urls()`"],
+      "expected": ["`currentStreak: 0`", "One batch call"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "STK-02", "area": "STK", "title": "10 straight wins page into older matches",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page 1 (cursor None): `_wins(10, 2000)` with `next_cursor=91`", "Page 2 (cursor 91): `_wins(3, 90) + [_match(80, False)]` with `next_cursor=70`"],
+      "steps": ["Call it"],
+      "expected": ["`currentStreak: 13`", "`lastMatches` is the 10 page-1 wins only", "Two batch calls, the second with `nextCursor=91`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "STK-03", "area": "STK", "title": "Paging stops on the last page",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page 1: `_wins(10, 2000)`, `next_cursor=91`", "Page 2: `_wins(2, 90)` with no next cursor"],
+      "steps": ["Call it"],
+      "expected": ["`currentStreak: 12`", "Two batch calls"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "STK-04", "area": "STK", "title": "A failed older page keeps the streak found so far",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page 1: `_wins(10, 2000)`, `next_cursor=91`", "Page 2: `(500, {})`"],
+      "steps": ["Call it"],
+      "expected": ["`200` (not 502) with `currentStreak: 10`", "A `WARNING` `Win streak truncated` with `player_id` and `streak: 10`", "A `WARNING` `Slugbot error status` with `upstream_status: 500`"],
+      "verify": ["Repeat with page 2 as a network error, as `success: false`, and as invalid JSON. Each should give the same 200 with streak 10."],
+      "agentNotes": ""
+    },
+    {
+      "id": "STK-05", "area": "STK", "title": "A cursor that doesn't advance can't loop forever",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page 1: `_wins(10, 2000)`, `next_cursor=91`", "Page 2 (cursor 91): `_wins(10, 90)` with `next_cursor=91` again"],
+      "steps": ["Call it"],
+      "expected": ["`currentStreak: 20`", "Exactly two batch calls", "A `WARNING` `Slugbot paging cursor did not advance` with `cursor: 91`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "STK-06", "area": "STK", "title": "hasNextPage true with a null cursor stops paging",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page 1: `_wins(10, 2000)` with paging `{\"nextCursor\": None, \"hasNextPage\": True}`"],
+      "steps": ["Call it"],
+      "expected": ["`currentStreak: 10`", "One batch call", "No error"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "STK-07", "area": "STK", "title": "Long streaks on real data",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["STREAK_PLAYER_ID (optional)"],
+      "setup": [],
+      "steps": [{"code": "curl -sS https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<STREAK_PLAYER_ID>"}],
+      "expected": ["All 10 `lastMatches` are wins and `currentStreak` ≥ 10, matching the player's real streak", "The tail shows more than one `match/batch` call (DEBUG `Slugbot request ok` lines)", "Response time stays reasonable (under about 3 s)"],
+      "verify": [],
+      "agentNotes": "BLOCKED if no STREAK_PLAYER_ID was given."
+    },
+
+    {
+      "id": "SLG-01", "area": "SLG", "title": "Unknown player returns 404",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`FakeSlugbot(player=(404, {}))`"],
+      "steps": ["Call it"],
+      "expected": ["`404` with `{\"error\":{\"code\":\"player_not_found\",\"message\":\"No ranked data for this player\"}}`", "An `INFO` log `Slugbot not found`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "SLG-02", "area": "SLG", "title": "Player 404 wins over a batch failure",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`FakeSlugbot(player=(404, {}), batches={None: (500, {})})`"],
+      "steps": ["Call it"],
+      "expected": ["`404 player_not_found`, not 502"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "SLG-03", "area": "SLG", "title": "Player found but batch 404 returns 404",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`FakeSlugbot(batches={None: (404, {})})`"],
+      "steps": ["Call it"],
+      "expected": ["`404 player_not_found` (current behavior: the batch's NotFound maps the same way). Confirm Slugbot really returns an empty `data` list rather than 404 for players with no matches."],
+      "verify": [],
+      "agentNotes": "Report what happens and flag it if it isn't 404."
+    },
+    {
+      "id": "SLG-04", "area": "SLG", "title": "Network failure returns 503",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`FakeSlugbot(error=ConnectionError(\"boom\"))`"],
+      "steps": ["Call it"],
+      "expected": ["`503` with `{\"error\":{\"code\":\"upstream_unavailable\",\"message\":\"Leaderboard service is unreachable\"}}`", "A `WARNING` `Slugbot request failed` with `reason: \"ConnectionError: boom\"`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "SLG-05", "area": "SLG", "title": "A slow Slugbot times out with 503",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A send function that does `await asyncio.sleep(3)` and `SLUGBOT_TIMEOUT_SEC=\"1\"`"],
+      "steps": ["Call it and time it"],
+      "expected": ["`503 upstream_unavailable` after about 1 s, not 3 s", "The log `reason` starts with `TimeoutError`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "SLG-06", "area": "SLG", "title": "Error statuses return 502",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Player status `500`, then `401` (bad API key), `403`, `429` (rate limited), `302`"],
+      "steps": ["Call once per status"],
+      "expected": ["Each gives `502` with `{\"error\":{\"code\":\"upstream_error\",\"message\":\"Leaderboard service returned an invalid response\"}}`", "A `WARNING` `Slugbot error status` with `upstream_status`"],
+      "verify": ["A 401 here in prod means the SLUGBOT_API_KEY secret is wrong"],
+      "agentNotes": ""
+    },
+    {
+      "id": "SLG-07", "area": "SLG", "title": "Non-JSON bodies return 502",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A send returning `HttpResponse(200, \"<html>Bad gateway</html>\")` for the player call"],
+      "steps": ["Call it"],
+      "expected": ["`502 upstream_error`", "A `WARNING` `Slugbot returned invalid JSON`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "SLG-08", "area": "SLG", "title": "Schema changes return 502, not 500",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Cases: player without `rank`; player `rank: \"first\"`; batch `paging.nextCursor: \"abc\"`; batch `data: null`; a participant without `playerId`; player body `[]`"],
+      "steps": ["Call once per case"],
+      "expected": ["Each gives `502 upstream_error`, never `500`", "A `WARNING` `Slugbot response did not match schema` with a `reason`"],
+      "verify": [],
+      "agentNotes": "A 500 or an uncaught exception here is a FAIL. Name the case."
+    },
+    {
+      "id": "SLG-09", "area": "SLG", "title": "First batch with success=false returns 502",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Batch `{\"success\": false, \"data\": [], \"paging\": {\"nextCursor\": null, \"hasNextPage\": false}}`"],
+      "steps": ["Call it"],
+      "expected": ["`502 upstream_error`", "A `WARNING` `Slugbot batch unsuccessful`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "SLG-10", "area": "SLG", "title": "Real Slugbot: valid ID with no ranked data",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["UNRANKED_ID"],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<UNRANKED_ID>"}],
+      "expected": ["`404 player_not_found`", "If it is 502, Slugbot answers unknown players differently than the code assumes: a launch blocker to look at"],
+      "verify": [],
+      "agentNotes": "If no UNRANKED_ID was given, use 10000000000000000 and note that."
+    },
+    {
+      "id": "SLG-11", "area": "SLG", "title": "Real Slugbot auth works on staging",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["KNOWN_PLAYER_ID"],
+      "setup": [],
+      "steps": ["Look at PLR-01's result and the tail"],
+      "expected": ["No `Slugbot error status` with `upstream_status: 401` or `403`", "PLR-01 returned 200"],
+      "verify": [],
+      "agentNotes": ""
+    },
+
+    {
+      "id": "DSC-01", "area": "DSC", "title": "Display name comes from global_name, else username",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`FakeDiscord(users={OPPONENT_ID: (200, USER_JSON | {\"id\": OPPONENT_ID})})`, then the same with `\"global_name\": None`"],
+      "steps": ["Call once with each"],
+      "expected": ["`opponentName: \"Nelly\"` the first time, `\"nelly\"` the second"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "DSC-02", "area": "DSC", "title": "Discord failures show Unknown and never fail the request",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["For OPPONENT_ID, one at a time: `(404, {})`, `(401, {})` (bad bot token), `(429, {\"retry_after\": 1})`, `(500, {})`, `ConnectionError(\"down\")`, a body that is not JSON, `(200, {\"id\": \"1\"})` (no username), `global_name: 5`, and a send that sleeps longer than `DISCORD_TIMEOUT_SEC=\"1\"`"],
+      "steps": ["Call once per case"],
+      "expected": ["Always `200`, with `opponentName: \"Unknown\"`", "All other fields unchanged (streak, rank, points)", "One `INFO` `Discord user lookups` line whose `results` maps the ID to the error, e.g. `\"DiscordNotFound: USER: 404\"`"],
+      "verify": [],
+      "agentNotes": "Any 5xx response or uncaught exception is a FAIL."
+    },
+    {
+      "id": "DSC-03", "area": "DSC", "title": "Discord requests use bot auth and the required User-Agent",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A Discord send that records `(method, url, headers)`"],
+      "steps": ["Call once"],
+      "expected": ["`GET <DISCORD_BASE_URL>/users/<opponent id>`", "`Authorization: Bot <DISCORD_BOT_TOKEN>`", "`User-Agent: DiscordBot (https://dbd1v1-api.truuehsoft.com, 1.0)`", "`Accept: application/json`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "DSC-04", "area": "DSC", "title": "Each opponent is looked up once per request",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Page with 5 matches against OPPONENT_ID and 2 against a second opponent"],
+      "steps": ["Call and count Discord URLs"],
+      "expected": ["Exactly 2 Discord calls", "All 7 matches carry the right name"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "DSC-05", "area": "DSC", "title": "Lookups are logged as a single line per request",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Three opponents: one OK, one 404, one 500. Empty MemoryCache."],
+      "steps": ["Call and capture logs"],
+      "expected": ["Exactly one `Discord user lookups` line, with `results` holding all three IDs (a name for the OK one, the error for the others)", "No per-call `Discord not found` or `Discord error status` lines"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "DSC-06", "area": "DSC", "title": "Real Discord names resolve on staging",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["KNOWN_PLAYER_ID", "A cold cache: wait 65 s after any earlier request for this player"],
+      "setup": [],
+      "steps": ["Request KNOWN_PLAYER_ID and read the tail"],
+      "expected": ["`opponentName` values are real Discord display names, not `Unknown`", "The tail has one `Discord user lookups` line, with no `DiscordError` entries (a 401 means the staging DISCORD_BOT_TOKEN is wrong)"],
+      "verify": ["Spot-check two names against Discord profiles"],
+      "agentNotes": "If some names are Unknown, report which error types appear in results."
+    },
+
+    {
+      "id": "CCH-01", "area": "CCH", "title": "Cold cache: names are fetched and stored with the env TTL",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`cache = MemoryCache()`, two opponents, `DISCORD_NAME_CACHE_TTL_SEC=\"3600\"`"],
+      "steps": ["Call, then print `cache.puts`"],
+      "expected": ["Two Discord calls", "`cache.puts` has `(\"discord-name/<id>\", \"<name>\", 3600)` for each opponent"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-02", "area": "CCH", "title": "Warm cache: no Discord calls at all",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["`MemoryCache(entries={f\"discord-name/{OPPONENT_ID}\": \"Cached Name\"})`"],
+      "steps": ["Call at DEBUG level and capture logs"],
+      "expected": ["`opponentName: \"Cached Name\"`", "FakeDiscord has no calls, and there are no new puts", "No `Discord user lookups` line", "A `DEBUG` `Opponent name cache` line with `hits: 1, misses: 0`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-03", "area": "CCH", "title": "Partial hit fetches only the misses",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Two opponents, one of them cached"],
+      "steps": ["Call it"],
+      "expected": ["One Discord call, for the uncached ID", "One put, for that ID"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-04", "area": "CCH", "title": "Failed lookups are not cached",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Discord returns 500 for OPPONENT_ID. `cache = MemoryCache()`"],
+      "steps": ["Call twice with the same cache"],
+      "expected": ["`Unknown` both times", "`cache.puts` stays empty", "Discord is called on both requests, so an outage doesn't stick"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-05", "area": "CCH", "title": "A broken cache read falls back to Discord",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A cache whose `get` raises `RuntimeError(\"cache down\")` and whose `put` works"],
+      "steps": ["Call it"],
+      "expected": ["`200` with the real name", "A `WARNING` `Cache get failed` with `user_id` and `reason: \"RuntimeError: cache down\"`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-06", "area": "CCH", "title": "A broken cache write still returns the name",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A cache whose `get` returns None and whose `put` raises `RuntimeError(\"write failed\")`"],
+      "steps": ["Call it"],
+      "expected": ["`200` with the real name", "A `WARNING` `Cache put failed`"],
+      "verify": ["Also try `MemoryCache(error=RuntimeError(...))`, which fails both get and put"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-07", "area": "CCH", "title": "Cache URL keys are stable and encoded",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": ["Entrypoint harness"],
+      "setup": ["`c = entry._WorkersCache(\"dbd1v1timerapi-staging\", \"https://dbd1v1-api-staging.truuehsoft.com\")`"],
+      "steps": ["Print `c._url(\"discord-name/1048372615940283746\")`"],
+      "expected": ["`https://dbd1v1-api-staging.truuehsoft.com/__cache/v1/discord-name/1048372615940283746`", "`put` writes `Cache-Control: max-age=<ttl>` (check with a fake cache object that records the Response)"],
+      "verify": [],
+      "agentNotes": "Swap sys.modules['js'].caches for a fake whose open() returns an object with async match/put, then check that put stores the max-age header and that get returns the text."
+    },
+    {
+      "id": "CCH-08", "area": "CCH", "title": "Staging: a repeat request is served from the cache",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["KNOWN_PLAYER_ID", "Tail running"],
+      "setup": [],
+      "steps": ["Request KNOWN_PLAYER_ID", "Within 30 s, request it again from the same machine"],
+      "expected": [
+        "First request: a `DEBUG` `Opponent name cache` line with `misses` > 0, then a `Discord user lookups` line",
+        "Second request: `Opponent name cache` with `misses: 0`, and no `Discord user lookups` line",
+        "Both responses have identical `opponentName` values"
+      ],
+      "verify": ["The cache lives per Cloudflare data center. If the second request lands in another colo (check `colo` or `cf-ray` suffix), a miss there is expected."],
+      "agentNotes": "If the first request was already all hits (warm from earlier), that still passes the hit half. Record the hit and miss counts."
+    },
+    {
+      "id": "CCH-09", "area": "CCH", "title": "Staging: cached names expire after 60 s",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["CCH-08 done"],
+      "setup": [],
+      "steps": ["Wait 65 s after the last request that wrote names", "Request KNOWN_PLAYER_ID again"],
+      "expected": ["`Opponent name cache` shows misses again and a `Discord user lookups` line appears"],
+      "verify": [],
+      "agentNotes": "Wait with a Monitor or until-loop, not a foreground sleep."
+    },
+    {
+      "id": "CCH-10", "area": "CCH", "title": "Cache entries aren't reachable as URLs",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/__cache/v1/discord-name/<an opponent id from PLR-01>"}],
+      "expected": ["`404 not_found` JSON from the Worker, not a cached name in `text/plain`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-11", "area": "CCH", "title": "A Discord rename shows up after the TTL",
+      "env": ["staging"], "agent": "manual",
+      "prereqs": ["A Discord account that appears as an opponent of KNOWN_PLAYER_ID, which you can rename"],
+      "setup": [],
+      "steps": ["Request the player and note the opponent's name", "Change that account's display name in Discord", "Request again right away, then again after 65 s"],
+      "expected": ["Right away: the old name (cached)", "After 65 s: the new name", "On prod the same takes up to 5 h (TTL 18000)"],
+      "verify": [],
+      "agentNotes": "Manual: needs a Discord account change."
+    },
+
+    {
+      "id": "LOG-01", "area": "LOG", "title": "One access line per request, without the client IP",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": ["Tail running"],
+      "setup": [],
+      "steps": ["Request `/api/v1/status` once", "Harness: `run(\"GET\", \"/api/v1/status\")`"],
+      "expected": [
+        "Exactly one `INFO` line with `msg` equal to the path and fields `method`, `path`, `status`, `duration_ms`, `user_agent`, `ray_id`, `country`, `asn`, `as_org`, plus `ts`, `level` and `logger: \"dbd1v1timerapi\"`",
+        "No field holds the client IP (no `cf-connecting-ip`, `x-forwarded-for` or `ip`)"
+      ],
+      "verify": [],
+      "agentNotes": "On staging, also check that the IP you're calling from doesn't appear anywhere in the event's logs array."
+    },
+    {
+      "id": "LOG-02", "area": "LOG", "title": "Each log line is one valid JSON object",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": [],
+      "steps": ["Parse every captured log line from the other scenarios"],
+      "expected": ["Every line parses with `json.loads`", "`extra=` fields sit at the top level, e.g. `upstream_status`, `reason`"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "LOG-03", "area": "LOG", "title": "Prod log level hides DEBUG lines",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": ["Entrypoint harness"],
+      "setup": ["`run(\"GET\", \"/api/v1/status\", LOG_LEVEL=\"INFO\")`, then a player call with a FakeSlugbot at INFO"],
+      "steps": ["Capture logs"],
+      "expected": ["No `Slugbot request ok` or `Opponent name cache` lines at INFO", "Both appear with `LOG_LEVEL=\"DEBUG\"` (staging)"],
+      "verify": [],
+      "agentNotes": ""
+    },
+    {
+      "id": "LOG-04", "area": "LOG", "title": "An unexpected exception returns 500 and logs a traceback",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": ["Entrypoint harness"],
+      "setup": ["Monkeypatch `entry.resolve` to return a handler that raises `RuntimeError(\"kaboom\")`"],
+      "steps": ["`run(\"GET\", \"/api/v1/status\")`"],
+      "expected": ["`500` with `internal_error`, and no traceback in the response body", "An `ERROR` `Unhandled error` line with `method`, `path`, `reason: \"RuntimeError: kaboom\"` and `exc`", "The access line with `status: 500`"],
+      "verify": [],
+      "agentNotes": "Restore entry.resolve afterwards."
+    },
+    {
+      "id": "LOG-05", "area": "LOG", "title": "Secrets never reach the logs",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": [],
+      "setup": ["Harness: use `SLUGBOT_API_KEY=\"sk-qa-123\"` and `DISCORD_BOT_TOKEN=\"tok-qa-456\"` for every run"],
+      "steps": ["Search all captured harness logs, and the staging tail output, for the secret values and for `Bearer ` / `Bot `"],
+      "expected": ["No match anywhere"],
+      "verify": [],
+      "agentNotes": "On staging you don't know the secret values. Search for 'Bearer ' and 'Authorization' only."
+    },
+    {
+      "id": "LOG-06", "area": "LOG", "title": "Broken request metadata doesn't fail the request",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": ["Entrypoint harness"],
+      "setup": ["A `Req` whose `headers` raises on `.get`, and a `Req` with `cf = None`"],
+      "steps": ["Run both against `/api/v1/status`"],
+      "expected": ["Both return `200`", "The access line has no client fields in the first case and `country: null` in the second"],
+      "verify": [],
+      "agentNotes": ""
+    },
+
+    {
+      "id": "PRD-01", "area": "PRD", "title": "First prod deploy succeeds",
+      "env": ["prod"], "agent": "manual",
+      "prereqs": ["All staging and unit scenarios pass", "DEP-03 and DEP-06 done"],
+      "setup": [],
+      "steps": [{"code": "npm run deploy:prod -- --secrets-file .dev.vars.prod"}],
+      "expected": ["The deploy finishes and lists `dbd1v1-api.truuehsoft.com (custom domain)`", "Within a few minutes the certificate is active and the hostname resolves"],
+      "verify": [],
+      "agentNotes": "Manual: the agent never deploys."
+    },
+    {
+      "id": "PRD-02", "area": "PRD", "title": "Prod status returns prod values",
+      "env": ["prod"], "agent": "manual",
+      "prereqs": ["PRD-01"],
+      "setup": [],
+      "steps": [{"code": "curl -sS -i https://dbd1v1-api.truuehsoft.com/api/v1/status"}],
+      "expected": ["`200`, `cache-control: no-store`, body equal to the top-level `vars` in wrangler.jsonc"],
+      "verify": [],
+      "agentNotes": "Manual."
+    },
+    {
+      "id": "PRD-03", "area": "PRD", "title": "Prod returns a real player with real names",
+      "env": ["prod"], "agent": "manual",
+      "prereqs": ["PRD-01", "KNOWN_PLAYER_ID"],
+      "setup": [],
+      "steps": [{"code": "curl -sS https://dbd1v1-api.truuehsoft.com/api/v1/players/<KNOWN_PLAYER_ID>"}],
+      "expected": ["Same shape as PLR-01, with names resolved", "The same data as staging for the same player"],
+      "verify": [],
+      "agentNotes": "Manual."
+    },
+    {
+      "id": "PRD-04", "area": "PRD", "title": "Prod name cache works",
+      "env": ["prod"], "agent": "manual",
+      "prereqs": ["PRD-03"],
+      "setup": [],
+      "steps": ["Repeat PRD-03 within a minute while running `npx wrangler tail --format json`"],
+      "expected": ["The second request has no `Discord user lookups` line (prod logs at INFO, so there is no DEBUG cache line)"],
+      "verify": [],
+      "agentNotes": "Manual."
+    },
+    {
+      "id": "PRD-05", "area": "PRD", "title": "Workers Logs shows clean traffic",
+      "env": ["prod"], "agent": "manual",
+      "prereqs": ["PRD-01"],
+      "setup": [],
+      "steps": ["Open Workers & Pages > dbd1v1timerapi > Logs. Filter `level = ERROR`, then `status >= 500`"],
+      "expected": ["Access lines appear with the indexed fields", "No `Unhandled error` lines and no 5xx statuses"],
+      "verify": [],
+      "agentNotes": "Manual."
+    },
+    {
+      "id": "PRD-06", "area": "PRD", "title": "Rollback path is known",
+      "env": ["prod"], "agent": "manual",
+      "prereqs": ["PRD-01"],
+      "setup": [],
+      "steps": ["Run `npx wrangler deployments list` and note the version ID", "Know the command: `npx wrangler rollback <previous-version-id>`"],
+      "expected": ["You can name the version to roll back to before you announce the launch. On the very first deploy there's nothing to roll back to, so the fallback is to unpublish the custom domain."],
+      "verify": [],
+      "agentNotes": "Manual."
+    },
+    {
+      "id": "PRD-07", "area": "PRD", "title": "The timer client works against the API",
+      "env": ["staging", "prod"], "agent": "manual",
+      "prereqs": ["The 1v1 timer client at version 1.7.0"],
+      "setup": [],
+      "steps": ["Point the client at staging if it supports a base URL override, otherwise at prod after PRD-01", "Look up a player and leave it running for a few minutes"],
+      "expected": ["Player stats and opponent names render", "The client polls status about every 20 s while active and about every 90 s when idle", "No update prompt (latest and minimum are both 1.7.0)"],
+      "verify": ["The tail shows the status requests arriving at that cadence"],
+      "agentNotes": "Manual: needs the client app."
+    }
+  ]
+}
+</script>
+
+<script>
+(function () {
+  "use strict";
+  var data = JSON.parse(document.getElementById("qa-scenarios").textContent);
+  var STORE_KEY = "dbd1v1timerapi-qa-v1";
+  var ENV_LABEL = { unit: "unit harness", static: "config / repo", staging: "staging", prod: "prod" };
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* storage blocked: marks last for this visit only */ }
+  }
+  var state = load();
+  var activeAreas = new Set();
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function inline(s) {
+    return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
+  }
+  function item(x) {
+    if (x && typeof x === "object" && "code" in x) return "<pre><code>" + esc(x.code) + "</code></pre>";
+    return inline(x);
+  }
+  function block(title, items, cls, ordered) {
+    if (!items || !items.length) return "";
+    var tag = ordered ? "ol" : "ul";
+    return '<div class="block ' + (cls || "") + '"><h4>' + title + "</h4><" + tag + ">" +
+      items.map(function (x) { return "<li>" + item(x) + "</li>"; }).join("") + "</" + tag + "></div>";
+  }
+  function textOf(s) {
+    return [s.id, s.title, s.agentNotes].concat(s.expected, s.setup, s.steps, s.prereqs, s.verify)
+      .map(function (x) { return typeof x === "object" && x ? x.code : x; }).join(" ").toLowerCase();
+  }
+
+  // Area chips
+  var chips = document.getElementById("areaChips");
+  data.areas.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.dataset.area = a.key;
+    b.setAttribute("aria-pressed", "false");
+    b.textContent = a.name;
+    b.addEventListener("click", function () {
+      if (activeAreas.has(a.key)) activeAreas.delete(a.key); else activeAreas.add(a.key);
+      b.setAttribute("aria-pressed", activeAreas.has(a.key) ? "true" : "false");
+      applyFilters();
+    });
+    chips.appendChild(b);
+  });
+
+  // Cards
+  var list = document.getElementById("list");
+  var byArea = {};
+  data.scenarios.forEach(function (s) { (byArea[s.area] = byArea[s.area] || []).push(s); });
+  data.areas.forEach(function (a) {
+    var items = byArea[a.key] || [];
+    if (!items.length) return;
+    var sec = document.createElement("section");
+    sec.className = "area"; sec.dataset.area = a.key; sec.id = "area-" + a.key;
+    sec.innerHTML = "<h2>" + esc(a.name) + " <small>" + a.key + " · " + items.length + "</small></h2><p>" + inline(a.blurb) + "</p>";
+    items.forEach(function (s) {
+      var card = document.createElement("article");
+      card.className = "card"; card.id = s.id; card.dataset.id = s.id;
+      card.dataset.search = textOf(s);
+      var tags = s.env.map(function (e) { return '<span class="tag">' + esc(ENV_LABEL[e] || e) + "</span>"; }).join("") +
+        '<span class="tag agent" title="How the /qa agent tests this">agent: ' + esc(s.agent) + "</span>";
+      var more = block("Prerequisites", s.prereqs) + block("Setup", s.setup) + block("Steps", s.steps, "", true) +
+        block("How to verify", s.verify) +
+        (s.agentNotes ? '<div class="agentnote"><b>Agent note:</b> ' + inline(s.agentNotes) + "</div>" : "");
+      card.innerHTML =
+        '<div class="card-head"><span class="sid">' + s.id + "</span><h3>" + inline(s.title) + '</h3><div class="tags">' + tags + "</div></div>" +
+        block("Expected", s.expected, "expected") +
+        (more ? '<details class="more"><summary>Setup, steps and how to verify</summary><div class="inner">' + more + "</div></details>" : "") +
+        '<div class="verdict">' +
+          '<button type="button" data-v="pass" aria-pressed="false">Pass</button>' +
+          '<button type="button" data-v="fail" aria-pressed="false">Fail</button>' +
+          '<button type="button" data-v="skip" aria-pressed="false">Skip</button>' +
+          '<textarea id="note-' + s.id + '" placeholder="Notes: what you saw, IDs used" aria-label="Notes for ' + s.id + '"></textarea>' +
+        "</div>";
+      var entry = state[s.id] || {};
+      var ta = card.querySelector("textarea");
+      ta.value = entry.note || "";
+      ta.addEventListener("input", function () {
+        state[s.id] = Object.assign({}, state[s.id], { note: ta.value }); save();
+      });
+      card.querySelectorAll(".verdict button").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var cur = (state[s.id] || {}).status;
+          var next = cur === btn.dataset.v ? undefined : btn.dataset.v;
+          state[s.id] = Object.assign({}, state[s.id], { status: next }); save();
+          paint(card, next); summarize(); applyFilters();
+        });
+      });
+      paint(card, entry.status);
+      sec.appendChild(card);
+    });
+    list.appendChild(sec);
+  });
+  var empty = document.createElement("p");
+  empty.className = "empty"; empty.hidden = true; empty.textContent = "No scenarios match these filters.";
+  list.appendChild(empty);
+
+  function paint(card, status) {
+    if (status) card.dataset.status = status; else delete card.dataset.status;
+    card.querySelectorAll(".verdict button").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.v === status ? "true" : "false");
+    });
+  }
+
+  function summarize() {
+    var total = data.scenarios.length, c = { pass: 0, fail: 0, skip: 0 };
+    data.scenarios.forEach(function (s) { var st = (state[s.id] || {}).status; if (st) c[st]++; });
+    var open = total - c.pass - c.fail - c.skip;
+    document.getElementById("summary").innerHTML =
+      '<div class="tile"><b>' + total + "</b><small>Scenarios</small></div>" +
+      '<div class="tile pass"><b>' + c.pass + "</b><small>Pass</small></div>" +
+      '<div class="tile fail"><b>' + c.fail + "</b><small>Fail</small></div>" +
+      '<div class="tile skip"><b>' + c.skip + "</b><small>Skip</small></div>" +
+      '<div class="tile"><b>' + open + "</b><small>Not marked</small></div>";
+    var pct = function (n) { return (n / total * 100).toFixed(2) + "%"; };
+    document.getElementById("bar").innerHTML =
+      '<i class="p" style="width:' + pct(c.pass) + '"></i><i class="f" style="width:' + pct(c.fail) + '"></i><i class="s" style="width:' + pct(c.skip) + '"></i>';
+  }
+
+  var q = document.getElementById("q"), envSel = document.getElementById("envSel"), statusSel = document.getElementById("statusSel");
+  function applyFilters() {
+    var term = q.value.trim().toLowerCase(), env = envSel.value, st = statusSel.value, shown = 0;
+    var envOf = {}; data.scenarios.forEach(function (s) { envOf[s.id] = s.env; });
+    document.querySelectorAll(".area").forEach(function (sec) {
+      var areaOk = !activeAreas.size || activeAreas.has(sec.dataset.area), any = false;
+      sec.querySelectorAll(".card").forEach(function (card) {
+        var status = card.dataset.status || "open";
+        var ok = areaOk && (!term || card.dataset.search.indexOf(term) !== -1) &&
+          (!env || envOf[card.dataset.id].indexOf(env) !== -1) && (!st || status === st);
+        card.hidden = !ok; if (ok) { any = true; shown++; }
+      });
+      sec.hidden = !any;
+    });
+    empty.hidden = shown !== 0;
+    document.getElementById("count").textContent = shown + " of " + data.scenarios.length + " shown";
+  }
+  q.addEventListener("input", applyFilters);
+  envSel.addEventListener("change", applyFilters);
+  statusSel.addEventListener("change", applyFilters);
+
+  document.getElementById("expandAll").addEventListener("click", function () {
+    document.querySelectorAll("details.more").forEach(function (d) { d.open = true; });
+  });
+  document.getElementById("collapseAll").addEventListener("click", function () {
+    document.querySelectorAll("details.more").forEach(function (d) { d.open = false; });
+  });
+
+  var toast = document.getElementById("toast");
+  function say(msg) { toast.textContent = msg; setTimeout(function () { toast.textContent = ""; }, 2500); }
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var lines = ["# dbd1v1timerapi launch QA results", "", "| ID | Scenario | Result | Notes |", "|----|----------|--------|-------|"];
+    data.scenarios.forEach(function (s) {
+      var e = state[s.id] || {};
+      var clean = function (t) { return String(t || "").replace(/\|/g, "\\|").replace(/\s*\n\s*/g, " "); };
+      lines.push("| " + s.id + " | " + clean(s.title.replace(/`/g, "")) + " | " + (e.status ? e.status.toUpperCase() : "-") + " | " + clean(e.note) + " |");
+    });
+    var md = lines.join("\n");
+    var box = document.getElementById("exportBox");
+    var fallback = function () { box.hidden = false; box.value = md; box.focus(); box.select(); say("Select-all is done. Copy it with Ctrl+C."); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(md).then(function () { box.hidden = true; say("Copied results as Markdown."); }, fallback);
+    } else { fallback(); }
+  });
+
+  var resetBtn = document.getElementById("resetBtn"), armTimer;
+  resetBtn.addEventListener("click", function () {
+    if (resetBtn.dataset.armed !== "true") {
+      resetBtn.dataset.armed = "true"; resetBtn.textContent = "Click again to clear all marks";
+      armTimer = setTimeout(function () { resetBtn.dataset.armed = "false"; resetBtn.textContent = "Clear my marks"; }, 4000);
+      return;
+    }
+    clearTimeout(armTimer);
+    state = {}; save();
+    document.querySelectorAll(".card").forEach(function (card) { paint(card, undefined); card.querySelector("textarea").value = ""; });
+    resetBtn.dataset.armed = "false"; resetBtn.textContent = "Clear my marks";
+    summarize(); applyFilters(); say("Cleared all marks and notes.");
+  });
+
+  summarize(); applyFilters();
+  if (location.hash) { var t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+})();
+</script>
+</body>
+</html>
