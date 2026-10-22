@@ -5,6 +5,7 @@ import unittest
 from api import handlers
 from api.config import Settings
 from api.context import Context
+from api.discord import DiscordClient
 from api.responses import ApiResponse
 from api.routing import resolve
 from api.slugbot import SlugbotClient
@@ -12,12 +13,14 @@ from tests.test_config import make_env
 
 
 async def _no_network(method, url, headers):
-    raise AssertionError(f"unexpected Slugbot call: {method} {url}")
+    raise AssertionError(f"unexpected upstream call: {method} {url}")
 
 
 def make_context():
     settings = Settings.from_env(make_env())
-    return Context(settings, SlugbotClient(settings, _no_network))
+    return Context(
+        settings, SlugbotClient(settings, _no_network), DiscordClient(settings, _no_network)
+    )
 
 
 class RoutingTest(unittest.TestCase):

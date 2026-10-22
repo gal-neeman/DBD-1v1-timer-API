@@ -8,10 +8,9 @@ from api.slugbot.dtos import (
     SlugbotPagingDto,
     SlugbotPlayerDto,
 )
-from api.slugbot.endpoints import Endpoint, SlugbotEndpoint
+from api.slugbot.endpoints import SlugbotEndpoint
 
 __all__ = [
-    "Endpoint",
     "SlugbotClient",
     "SlugbotEndpoint",
     "SlugbotError",

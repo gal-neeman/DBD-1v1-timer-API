@@ -7,7 +7,8 @@
     "dev:staging": "uv run pywrangler dev --env staging",
     "start": "uv run pywrangler dev",
     "deploy:staging": "uv run pywrangler deploy --env staging",
-    "deploy:prod": "uv run pywrangler deploy"
+    "deploy:prod": "uv run pywrangler deploy",
+    "test": "uv run python -m unittest discover -s tests -t ."
   },
   "devDependencies": {
     "wrangler": "^4.151.1"
