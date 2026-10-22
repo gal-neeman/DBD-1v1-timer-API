@@ -41,6 +41,6 @@ class DiscordClient(UpstreamClient):
             "User-Agent": USER_AGENT,
         }
 
-    async def get_user(self, user_id: str) -> DiscordUserDto:
-        data = await self._request(DiscordEndpoint.USER, user_id=user_id)
-        return self._parse(DiscordEndpoint.USER, DiscordUserDto, data)
+    async def get_user(self, user_id: str, *, log: bool = True) -> DiscordUserDto:
+        data = await self._request(DiscordEndpoint.USER, log=log, user_id=user_id)
+        return self._parse(DiscordEndpoint.USER, DiscordUserDto, data, log=log)

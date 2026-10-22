@@ -20,9 +20,9 @@ async def opponent_names(ctx: Context, opponent_ids: list[str]) -> dict[str, str
     """Discord display name per opponent, looked up once each and in parallel.
 
     Cached names skip Discord entirely; fetched names are cached for next time. A cache
-    failure counts as a miss. A failed Discord lookup (already logged by the client) maps
-    to "Unknown" and isn't cached, so an outage doesn't stick. Anything else is a bug and
-    propagates.
+    failure counts as a miss. All Discord lookups are logged together as one line. A failed
+    lookup maps to "Unknown" and isn't cached, so an outage doesn't stick. Anything else is
+    a bug and propagates.
     """
     unique_ids = list(dict.fromkeys(opponent_ids))
     cached = await asyncio.gather(
@@ -42,16 +42,20 @@ async def opponent_names(ctx: Context, opponent_ids: list[str]) -> dict[str, str
     logger.debug("Opponent name cache", extra={"hits": len(names), "misses": len(misses)})
 
     users = await asyncio.gather(
-        *(ctx.discord.get_user(user_id) for user_id in misses), return_exceptions=True
+        *(ctx.discord.get_user(user_id, log=False) for user_id in misses), return_exceptions=True
     )
     fetched: dict[str, str] = {}
+    results: dict[str, str] = {}
     for user_id, user in zip(misses, users):
         if isinstance(user, DiscordError):
             names[user_id] = UNKNOWN_NAME
+            results[user_id] = f"{type(user).__name__}: {user}"
         elif isinstance(user, BaseException):
             raise user
         else:
-            names[user_id] = fetched[user_id] = user.display_name
+            names[user_id] = fetched[user_id] = results[user_id] = user.display_name
+    if results:
+        logger.info("Discord user lookups", extra={"results": results})
 
     ttl = ctx.settings.discord_name_cache_ttl_sec
     stored = await asyncio.gather(

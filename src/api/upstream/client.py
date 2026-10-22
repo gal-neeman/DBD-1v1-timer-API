@@ -61,8 +61,10 @@ class UpstreamClient:
         endpoint: Enum,
         *,
         query: dict[str, str] | None = None,
+        log: bool = True,
         **path_params: str,
     ) -> Any:
+        """log=False is for callers that log the outcome themselves."""
         spec: Endpoint = endpoint.value
         path = spec.build_path(**self._path_params(), **path_params)
         url = self._base_url + path + spec.build_query(query)
@@ -76,35 +78,41 @@ class UpstreamClient:
                 self._send(spec.method, url, headers), timeout=self._timeout
             )
         except Exception as exc:
-            logger.warning(
-                f"{self._name} request failed",
-                extra={**log_extra, "reason": f"{type(exc).__name__}: {exc}"},
-            )
+            if log:
+                logger.warning(
+                    f"{self._name} request failed",
+                    extra={**log_extra, "reason": f"{type(exc).__name__}: {exc}"},
+                )
             raise self._unavailable(f"{endpoint.name}: {type(exc).__name__}") from exc
 
         log_extra["upstream_status"] = response.status
         log_extra["duration_ms"] = round((time.perf_counter() - started) * 1000, 2)
         if response.status == 404:
-            logger.info(f"{self._name} not found", extra=log_extra)
+            if log:
+                logger.info(f"{self._name} not found", extra=log_extra)
             raise self._not_found(f"{endpoint.name}: 404")
         if not 200 <= response.status < 300:
-            logger.warning(f"{self._name} error status", extra=log_extra)
+            if log:
+                logger.warning(f"{self._name} error status", extra=log_extra)
             raise self._error(f"{endpoint.name}: HTTP {response.status}")
-        logger.debug(f"{self._name} request ok", extra=log_extra)
+        if log:
+            logger.debug(f"{self._name} request ok", extra=log_extra)
 
         try:
             return json.loads(response.body)
         except ValueError as exc:
-            logger.warning(f"{self._name} returned invalid JSON", extra=log_extra)
+            if log:
+                logger.warning(f"{self._name} returned invalid JSON", extra=log_extra)
             raise self._error(f"{endpoint.name}: invalid JSON") from exc
 
-    def _parse(self, endpoint: Enum, dto_cls: type[T], data: Any) -> T:
+    def _parse(self, endpoint: Enum, dto_cls: type[T], data: Any, *, log: bool = True) -> T:
         try:
             return dto_cls.from_dict(data)
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             reason = f"{type(exc).__name__}: {exc}"
-            logger.warning(
-                f"{self._name} response did not match schema",
-                extra={"endpoint": endpoint.name, "reason": reason},
-            )
+            if log:
+                logger.warning(
+                    f"{self._name} response did not match schema",
+                    extra={"endpoint": endpoint.name, "reason": reason},
+                )
             raise self._error(f"{endpoint.name}: unexpected response shape ({reason})") from exc
