@@ -85,7 +85,7 @@
 				"SLUGBOT_TIMEOUT_SEC": "15",
 				"DISCORD_BASE_URL": "https://discord.com/api/v10",
 				"DISCORD_TIMEOUT_SEC": "15",
-				"DISCORD_NAME_CACHE_TTL_SEC": "30",
+				"DISCORD_NAME_CACHE_TTL_SEC": "60",
 				"CACHE_NAME": "dbd1v1timerapi-staging",
 				"STATUS_ENABLED": "true",
 				"FAST_POLL_SEC": "20",
