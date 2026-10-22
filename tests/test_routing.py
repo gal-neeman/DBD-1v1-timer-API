@@ -9,6 +9,7 @@ from api.discord import DiscordClient
 from api.responses import ApiResponse
 from api.routing import resolve
 from api.slugbot import SlugbotClient
+from tests.fakes import MemoryCache
 from tests.test_config import make_env
 
 
@@ -19,7 +20,10 @@ async def _no_network(method, url, headers):
 def make_context():
     settings = Settings.from_env(make_env())
     return Context(
-        settings, SlugbotClient(settings, _no_network), DiscordClient(settings, _no_network)
+        settings,
+        SlugbotClient(settings, _no_network),
+        DiscordClient(settings, _no_network),
+        MemoryCache(),
     )
 
 

@@ -11,6 +11,7 @@ from api.discord import DiscordClient
 from api.slugbot import SlugbotClient
 from api.transport import HttpResponse
 from tests.discord.test_dtos import USER_JSON
+from tests.fakes import MemoryCache
 from tests.slugbot.test_dtos import MATCH_BATCH_JSON, PLAYER_JSON
 from tests.test_config import make_env
 from tests.test_routing import make_context
@@ -82,12 +83,13 @@ class FakeDiscord:
         return HttpResponse(status, json.dumps(body))
 
 
-def make_slugbot_context(send, discord_send=None):
+def make_slugbot_context(send, discord_send=None, cache=None):
     settings = Settings.from_env(make_env())
     return Context(
         settings,
         SlugbotClient(settings, send),
         DiscordClient(settings, discord_send or FakeDiscord()),
+        cache if cache is not None else MemoryCache(),
     )
 
 
@@ -250,6 +252,73 @@ class PlayerDetailsMappingTest(unittest.TestCase):
         body = json.loads(self._call(FakeSlugbot(batches={None: (200, _page(matches))})).render())
         self.assertEqual(_is_wins(body), [True, False, True])
         self.assertEqual(body["currentStreak"], 1)
+
+
+class PlayerDetailsNameCacheTest(unittest.TestCase):
+    OTHER_ID = "555555555555555555"
+
+    def _two_opponents(self):
+        other = _match(500, True)
+        other["participants"][1]["playerId"] = self.OTHER_ID
+        return FakeSlugbot(batches={None: (200, _page([_match(1000, True), other]))})
+
+    def _names(self, send, discord, cache):
+        ctx = make_slugbot_context(send, discord, cache)
+        response = asyncio.run(handlers.get_player_details(ctx, {"player_id": PLAYER_ID}))
+        self.assertEqual(response.status, 200)
+        return [match["opponentName"] for match in json.loads(response.render())["lastMatches"]]
+
+    def test_cold_cache_fetches_and_stores(self):
+        discord, cache = FakeDiscord(), MemoryCache()
+        self.assertEqual(self._names(self._two_opponents(), discord, cache), ["Nelly", "Nelly"])
+        self.assertEqual(len(discord.urls), 2)
+        self.assertEqual(
+            sorted(cache.puts),
+            sorted(
+                [
+                    (f"discord-name/{OPPONENT_ID}", "Nelly", 3600),
+                    (f"discord-name/{self.OTHER_ID}", "Nelly", 3600),
+                ]
+            ),
+        )
+
+    def test_warm_cache_skips_discord(self):
+        discord = FakeDiscord()
+        cache = MemoryCache(
+            {f"discord-name/{OPPONENT_ID}": "Cached A", f"discord-name/{self.OTHER_ID}": "Cached B"}
+        )
+        self.assertEqual(
+            self._names(self._two_opponents(), discord, cache), ["Cached A", "Cached B"]
+        )
+        self.assertEqual(discord.urls, [])
+        self.assertEqual(cache.puts, [])
+
+    def test_partial_hit_fetches_only_misses(self):
+        discord = FakeDiscord()
+        cache = MemoryCache({f"discord-name/{OPPONENT_ID}": "Cached A"})
+        self.assertEqual(self._names(self._two_opponents(), discord, cache), ["Cached A", "Nelly"])
+        self.assertEqual([url.rsplit("/", 1)[1] for url in discord.urls], [self.OTHER_ID])
+        self.assertEqual(cache.puts, [(f"discord-name/{self.OTHER_ID}", "Nelly", 3600)])
+
+    def test_failed_lookup_not_cached(self):
+        for outcome in ((404, {}), (429, {}), OSError("connection reset")):
+            with self.subTest(outcome=outcome):
+                discord, cache = FakeDiscord({OPPONENT_ID: outcome}), MemoryCache()
+                with self.assertLogs("dbd1v1timerapi", level="INFO"):
+                    names = self._names(FakeSlugbot(), discord, cache)
+                self.assertEqual(names, ["Unknown"])
+                self.assertEqual(cache.puts, [])
+
+    def test_cache_failure_falls_back_to_discord(self):
+        discord, cache = FakeDiscord(), MemoryCache(error=RuntimeError("cache down"))
+        with self.assertLogs("dbd1v1timerapi", level="WARNING") as logs:
+            names = self._names(FakeSlugbot(), discord, cache)
+        self.assertEqual(names, ["Nelly"])
+        self.assertEqual(len(discord.urls), 1)
+        self.assertEqual(
+            [record.getMessage() for record in logs.records],
+            ["Cache get failed", "Cache put failed"],
+        )
 
 
 class PlayerDetailsStreakTest(unittest.TestCase):

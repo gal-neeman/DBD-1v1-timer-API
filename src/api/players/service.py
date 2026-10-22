@@ -6,10 +6,10 @@ import asyncio
 import logging
 
 from api.context import Context
-from api.discord import DiscordError
 from api.dtos import PlayerDetailsDto
-from api.players.mapping import UNKNOWN_NAME, to_player_details
+from api.players.mapping import to_player_details
 from api.players.matches import match_results, player_matches, win_streak
+from api.players.names import opponent_names
 from api.slugbot import SlugbotError, SlugbotMatchBatchDto
 
 logger = logging.getLogger("dbd1v1timerapi")
@@ -32,7 +32,7 @@ async def get_player_details(ctx: Context, player_id: str) -> PlayerDetailsDto:
     matches = player_matches(batch.data, player_id)
     results = [int(pm.is_win) for pm in matches]
     streak = win_streak(results)
-    names_lookup = _opponent_names(ctx, [pm.opponent.player_id for pm in matches])
+    names_lookup = opponent_names(ctx, [pm.opponent.player_id for pm in matches])
     if results and streak == len(results):
         # Neither raises for upstream failures, so running them together only saves time.
         streak, names = await asyncio.gather(
@@ -41,27 +41,6 @@ async def get_player_details(ctx: Context, player_id: str) -> PlayerDetailsDto:
     else:
         names = await names_lookup
     return to_player_details(player, matches, names, streak)
-
-
-async def _opponent_names(ctx: Context, opponent_ids: list[str]) -> dict[str, str]:
-    """Discord display name per opponent, looked up once each and in parallel.
-
-    A failed lookup (already logged by the client) maps to "Unknown" instead of failing
-    the request; anything else is a bug and propagates.
-    """
-    unique_ids = list(dict.fromkeys(opponent_ids))
-    users = await asyncio.gather(
-        *(ctx.discord.get_user(user_id) for user_id in unique_ids), return_exceptions=True
-    )
-    names: dict[str, str] = {}
-    for user_id, user in zip(unique_ids, users):
-        if isinstance(user, DiscordError):
-            names[user_id] = UNKNOWN_NAME
-        elif isinstance(user, BaseException):
-            raise user
-        else:
-            names[user_id] = user.display_name
-    return names
 
 
 async def _extend_streak(
