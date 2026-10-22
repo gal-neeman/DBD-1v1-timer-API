@@ -21,6 +21,8 @@ FAST_POLL_CAP_SEC_RANGE = (0, 600)
 # Slugbot calls past this are abandoned with a 503; a request can make several in a row.
 SLUGBOT_TIMEOUT_SEC_RANGE = (1, 30)
 DISCORD_TIMEOUT_SEC_RANGE = (1, 30)
+# How long a cached Discord display name is served before it's fetched again.
+DISCORD_NAME_CACHE_TTL_SEC_RANGE = (60, 604800)
 
 
 class ConfigError(Exception):
@@ -93,6 +95,8 @@ class Settings:
     slugbot_timeout_sec: float
     discord_base_url: str
     discord_timeout_sec: float
+    discord_name_cache_ttl_sec: int
+    cache_name: str
     status_enabled: bool
     fast_poll_sec: int
     slow_poll_sec: int
@@ -119,6 +123,10 @@ class Settings:
             discord_timeout_sec=_parse_bounded_int(
                 env, "DISCORD_TIMEOUT_SEC", DISCORD_TIMEOUT_SEC_RANGE
             ),
+            discord_name_cache_ttl_sec=_parse_bounded_int(
+                env, "DISCORD_NAME_CACHE_TTL_SEC", DISCORD_NAME_CACHE_TTL_SEC_RANGE
+            ),
+            cache_name=_parse_str(env, "CACHE_NAME"),
             status_enabled=_parse_bool(env, "STATUS_ENABLED"),
             fast_poll_sec=_parse_bounded_int(env, "FAST_POLL_SEC", FAST_POLL_SEC_RANGE),
             slow_poll_sec=_parse_bounded_int(env, "SLOW_POLL_SEC", SLOW_POLL_SEC_RANGE),

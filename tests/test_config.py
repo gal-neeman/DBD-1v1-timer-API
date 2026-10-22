@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from api import config
 from api.config import (
+    DISCORD_NAME_CACHE_TTL_SEC_RANGE,
     DISCORD_TIMEOUT_SEC_RANGE,
     FAST_POLL_CAP_SEC_RANGE,
     FAST_POLL_SEC_RANGE,
@@ -21,6 +22,8 @@ VALID_ENV = {
     "SLUGBOT_TIMEOUT_SEC": "5",
     "DISCORD_BASE_URL": "https://discord.example/api/v10/",
     "DISCORD_TIMEOUT_SEC": "5",
+    "DISCORD_NAME_CACHE_TTL_SEC": "3600",
+    "CACHE_NAME": "test-cache",
     "STATUS_ENABLED": "true",
     "FAST_POLL_SEC": "10",
     "SLOW_POLL_SEC": "60",
@@ -46,6 +49,8 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.slugbot_timeout_sec, 5)
         self.assertEqual(settings.discord_base_url, "https://discord.example/api/v10")
         self.assertEqual(settings.discord_timeout_sec, 5)
+        self.assertEqual(settings.discord_name_cache_ttl_sec, 3600)
+        self.assertEqual(settings.cache_name, "test-cache")
         self.assertEqual(settings.status_message, "")
         self.assertEqual(settings.log_level, "INFO")
         self.assertNotIn("secret", repr(settings))
@@ -108,6 +113,8 @@ class SettingsTest(unittest.TestCase):
             ("SLUGBOT_TIMEOUT_SEC", "100000", SLUGBOT_TIMEOUT_SEC_RANGE[1]),
             ("DISCORD_TIMEOUT_SEC", "0", DISCORD_TIMEOUT_SEC_RANGE[0]),
             ("DISCORD_TIMEOUT_SEC", "100000", DISCORD_TIMEOUT_SEC_RANGE[1]),
+            ("DISCORD_NAME_CACHE_TTL_SEC", "0", DISCORD_NAME_CACHE_TTL_SEC_RANGE[0]),
+            ("DISCORD_NAME_CACHE_TTL_SEC", "9999999", DISCORD_NAME_CACHE_TTL_SEC_RANGE[1]),
         ]
         for variable, raw, expected in cases:
             with self.subTest(variable=variable, value=raw):
@@ -133,6 +140,7 @@ class SettingsTest(unittest.TestCase):
                     FAST_POLL_CAP_SEC=str(FAST_POLL_CAP_SEC_RANGE[bound]),
                     SLUGBOT_TIMEOUT_SEC=str(SLUGBOT_TIMEOUT_SEC_RANGE[bound]),
                     DISCORD_TIMEOUT_SEC=str(DISCORD_TIMEOUT_SEC_RANGE[bound]),
+                    DISCORD_NAME_CACHE_TTL_SEC=str(DISCORD_NAME_CACHE_TTL_SEC_RANGE[bound]),
                 )
                 with self.assertNoLogs("dbd1v1timerapi", level="WARNING"):
                     Settings.from_env(env)
