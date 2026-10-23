@@ -13,7 +13,7 @@ from api.slugbot import (
     SlugbotUnavailable,
 )
 from api.transport import HttpResponse
-from tests.slugbot.test_dtos import MATCH_BATCH_JSON, PLAYER_JSON
+from tests.slugbot.test_dtos import MATCH_BATCH_JSON, OPEN_MATCH_JSON, PLAYER_JSON
 from tests.test_config import make_env
 
 BASE = "https://slugbot.example/123456789012345678/lb%201"
@@ -74,6 +74,19 @@ class SlugbotClientTest(unittest.TestCase):
             SlugbotError, "success=false"
         ):
             asyncio.run(make_client(send).get_match_batch("1", 10))
+
+    def test_get_match_batch_unfiltered(self):
+        body = {**MATCH_BATCH_JSON, "data": [MATCH_BATCH_JSON["data"][0], OPEN_MATCH_JSON]}
+        send = FakeSend(body=json.dumps(body))
+        batch = asyncio.run(
+            make_client(send).get_match_batch("273849165028374619", 15, complete=False)
+        )
+        self.assertEqual(len(batch.data), 1)
+        self.assertEqual(len(batch.open_matches), 1)
+        self.assertEqual(
+            send.calls[0][1],
+            f"{BASE}/match/batch?userId=273849165028374619&limit=15&complete=false",
+        )
 
     def test_timeout(self):
         async def slow_send(method, url, headers):

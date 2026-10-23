@@ -38,6 +38,11 @@ class RoutingTest(unittest.TestCase):
         self.assertIs(handler, handlers.get_player_details)
         self.assertEqual(params, {"player_id": "abc-123"})
 
+    def test_player_subpath_not_found(self):
+        # Current match is a field of player details, not its own route.
+        response = resolve("GET", "/api/v1/players/abc-123/current-match")
+        self.assertEqual(response.status, 404)
+
     def test_not_found(self):
         response = resolve("GET", "/nope")
         self.assertIsInstance(response, ApiResponse)

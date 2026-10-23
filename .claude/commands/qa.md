@@ -1,6 +1,6 @@
 ---
 description: Run every launch QA scenario from qa/qa-scenarios.html (unit harness + read-only staging) and report results
-argument-hint: "[known=<player id>] [unranked=<player id>] [streak=<player id>] [only=<IDs or area keys, comma-separated>]"
+argument-hint: "[known=<player id>] [unranked=<player id>] [streak=<player id>] [inmatch=<player id>] [only=<IDs or area keys, comma-separated>]"
 allowed-tools: Read, Grep, Glob, Write, Bash(npm test*), Bash(uv run python*), Bash(curl *), Bash(npx wrangler tail*), Bash(npx wrangler secret list*), Bash(npx wrangler deployments list*), Bash(git log*), Bash(git rev-parse*)
 ---
 
@@ -18,6 +18,7 @@ Arguments: `$ARGUMENTS`
 - `known=`: KNOWN_PLAYER_ID, a Discord ID with ranked matches.
 - `unranked=`: UNRANKED_ID, a valid Discord ID with no ranked data.
 - `streak=`: STREAK_PLAYER_ID, a player on 10+ wins in a row (optional).
+- `inmatch=`: IN_MATCH_ID, a player in a ranked match right now (optional).
 - `only=`: comma-separated scenario IDs (`CCH-08`) or area keys (`STK`). Default: all.
 
 If `known` is missing, ask for it once before the staging scenarios. If the user has no ID to

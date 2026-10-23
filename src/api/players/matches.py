@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-from api.slugbot import SlugbotMatchDto, SlugbotMatchParticipantDto
+from api.slugbot import (
+    SlugbotMatchDto,
+    SlugbotMatchParticipantDto,
+    SlugbotMatchSeatDto,
+    SlugbotOpenMatchDto,
+)
 
 
 class PlayerMatch(NamedTuple):
@@ -28,6 +33,19 @@ def player_matches(matches: list[SlugbotMatchDto], player_id: str) -> list[Playe
         if opponent is not None:
             found.append(PlayerMatch(match, me, opponent))
     return found
+
+
+def current_opponent(
+    open_matches: list[SlugbotOpenMatchDto], player_id: str
+) -> SlugbotMatchSeatDto | None:
+    """The opponent in the player's newest unfinished match. None if there is no such match,
+    or the player is still waiting for an opponent to join it."""
+    mine = [m for m in open_matches if any(p.player_id == player_id for p in m.participants)]
+    if not mine:
+        return None
+    match = max(mine, key=lambda m: m.timestamp)
+    me = next(p for p in match.participants if p.player_id == player_id)
+    return next((p for p in match.participants if p.team_id != me.team_id), None)
 
 
 def match_results(matches: list[SlugbotMatchDto], player_id: str) -> list[int]:

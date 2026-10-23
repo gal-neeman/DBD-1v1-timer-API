@@ -8,6 +8,8 @@ from typing import Any
 
 # Slugbot omits "rank" for unranked players.
 UNRANKED = -1
+# Slugbot's "winTeam" for a match that hasn't finished.
+NO_WINNER = -1
 
 
 def _from_epoch_ms(ms: int) -> datetime:
@@ -111,6 +113,35 @@ class SlugbotMatchDto:
 
 
 @dataclass(frozen=True, slots=True)
+class SlugbotMatchSeatDto:
+    team_id: int
+    player_id: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SlugbotMatchSeatDto:
+        return cls(team_id=int(data["teamId"]), player_id=data["playerId"])
+
+
+@dataclass(frozen=True, slots=True)
+class SlugbotOpenMatchDto:
+    """An unfinished match: only who is in it, since its ranks, points and scores are null.
+    With a single participant, that player is still waiting for an opponent."""
+
+    match_id: str
+    # When it was created. A finished match's timestamp is when it finished instead.
+    timestamp: datetime
+    participants: list[SlugbotMatchSeatDto]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SlugbotOpenMatchDto:
+        return cls(
+            match_id=data["matchId"],
+            timestamp=_from_epoch_ms(data["timestamp"]),
+            participants=[SlugbotMatchSeatDto.from_dict(p) for p in data["participants"]],
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SlugbotPagingDto:
     next_cursor: int | None
     has_next_page: bool
@@ -125,16 +156,22 @@ class SlugbotPagingDto:
 
 @dataclass(frozen=True, slots=True)
 class SlugbotMatchBatchDto:
-    """Response of /match/batch."""
+    """Response of /match/batch. Finished matches go to data, unfinished ones (only on a
+    complete=false page) to open_matches."""
 
     success: bool
     data: list[SlugbotMatchDto]
+    open_matches: list[SlugbotOpenMatchDto]
     paging: SlugbotPagingDto
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SlugbotMatchBatchDto:
+        matches = data["data"]
         return cls(
             success=bool(data["success"]),
-            data=[SlugbotMatchDto.from_dict(m) for m in data["data"]],
+            data=[SlugbotMatchDto.from_dict(m) for m in matches if m["winTeam"] != NO_WINNER],
+            open_matches=[
+                SlugbotOpenMatchDto.from_dict(m) for m in matches if m["winTeam"] == NO_WINNER
+            ],
             paging=SlugbotPagingDto.from_dict(data["paging"]),
         )

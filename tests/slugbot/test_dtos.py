@@ -58,6 +58,33 @@ MATCH_BATCH_JSON = {
     "paging": {"nextCursor": 1792397295163, "hasNextPage": True},
 }
 
+_OPEN_SEAT = {
+    "initialPoints": None,
+    "initialElo": None,
+    "initialRank": None,
+    "pointsReceived": None,
+    "eloReceived": None,
+    "pointDecayRegened": None,
+}
+
+# An unfinished match as Slugbot returns it with complete=false: no winner, everything null.
+OPEN_MATCH_JSON = {
+    "matchId": "6adba7903fb28de224afd879",
+    "guildId": "746281937465019283",
+    "leaderBoardId": "1v1 - ranked dbd",
+    "timestamp": 1792780176203,
+    "rankRangeLimit": -1,
+    "platformLimit": [],
+    "regionLimit": [],
+    "isResolvePending": False,
+    "declaredResults": {"team0": [None, None], "team1": [None, None]},
+    "winTeam": -1,
+    "participants": [
+        {"teamId": 0, "playerId": "273849165028374619", **_OPEN_SEAT},
+        {"teamId": 1, "playerId": "1048372615940283746", **_OPEN_SEAT},
+    ],
+}
+
 
 class SlugbotDtoParsingTest(unittest.TestCase):
     def test_player_from_dict(self):
@@ -118,6 +145,30 @@ class SlugbotDtoParsingTest(unittest.TestCase):
                 SlugbotMatchBatchDto.from_dict(
                     {"success": True, "data": [], "paging": {"nextCursor": cursor, "hasNextPage": True}}
                 )
+
+    def test_complete_batch_has_no_open_matches(self):
+        self.assertEqual(SlugbotMatchBatchDto.from_dict(MATCH_BATCH_JSON).open_matches, [])
+
+    def test_mixed_batch_splits_finished_and_open_matches(self):
+        searching = {**OPEN_MATCH_JSON, "participants": OPEN_MATCH_JSON["participants"][:1]}
+        batch = SlugbotMatchBatchDto.from_dict(
+            {**MATCH_BATCH_JSON, "data": [OPEN_MATCH_JSON, MATCH_BATCH_JSON["data"][0], searching]}
+        )
+        (finished,) = batch.data
+        self.assertEqual(finished.win_team, 0)
+        self.assertEqual(finished.participants[0].initial_rank, 667)
+
+        open_match, solo = batch.open_matches
+        self.assertEqual(open_match.match_id, "6adba7903fb28de224afd879")
+        self.assertEqual(
+            open_match.timestamp, datetime.fromtimestamp(1792780176.203, tz=timezone.utc)
+        )
+        self.assertEqual(
+            [(p.team_id, p.player_id) for p in open_match.participants],
+            [(0, "273849165028374619"), (1, "1048372615940283746")],
+        )
+        self.assertEqual(len(solo.participants), 1)
+        self.assertEqual(batch.paging.next_cursor, 1792397295163)
 
 
 if __name__ == "__main__":

@@ -48,10 +48,14 @@ class SlugbotClient(UpstreamClient):
         return self._parse(SlugbotEndpoint.PLAYER, SlugbotPlayerDto, data)
 
     async def get_match_batch(
-        self, user_id: str, limit: int, cursor: int | None = None
+        self, user_id: str, limit: int, cursor: int | None = None, *, complete: bool = True
     ) -> SlugbotMatchBatchDto:
-        """Newest matches first; pass a previous page's paging.next_cursor to get older ones."""
-        query = {"userId": user_id, "limit": str(limit), "complete": "true"}
+        """Newest matches first; pass a previous page's paging.next_cursor to get older ones.
+
+        complete=False doesn't filter to unfinished matches: it returns finished and
+        unfinished ones mixed, and the unfinished ones land in open_matches.
+        """
+        query = {"userId": user_id, "limit": str(limit), "complete": str(complete).lower()}
         if cursor is not None:
             query["nextCursor"] = str(cursor)
         data = await self._request(SlugbotEndpoint.MATCH_BATCH, query=query)

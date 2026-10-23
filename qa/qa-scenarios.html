@@ -182,6 +182,7 @@ details.more .inner { display: grid; gap: 10px; }
           <li><b>KNOWN_PLAYER_ID</b>: a Discord ID that has ranked matches on the 1v1 leaderboard.</li>
           <li><b>UNRANKED_ID</b>: a valid Discord ID with no ranked data, e.g. a fresh alt account.</li>
           <li><b>STREAK_PLAYER_ID</b> (optional): a player currently on 10+ wins in a row.</li>
+          <li><b>IN_MATCH_ID</b> (optional): a player in a ranked match (with an opponent) right now.</li>
           <li><code>.dev.vars.prod</code> holding real <code>SLUGBOT_API_KEY</code> and <code>DISCORD_BOT_TOKEN</code> for the first prod deploy.</li>
         </ul>
       </div>
@@ -309,6 +310,7 @@ def run(method, path, **env):
     {"key": "VAL", "name": "Player ID validation", "blurb": "Bad IDs must be rejected before any upstream call."},
     {"key": "PLR", "name": "Player details", "blurb": "GET /api/v1/players/{id}: field mapping, ordering and edge cases."},
     {"key": "STK", "name": "Win streak paging", "blurb": "The streak keeps reading older Slugbot pages until the first loss."},
+    {"key": "CUR", "name": "Current match", "blurb": "The `currentMatch` object in GET /api/v1/players/{id}: whether the player is mid-match, and the opponent's name and rank. It comes from the same unfiltered first match page as `lastMatches`."},
     {"key": "SLG", "name": "Slugbot failures", "blurb": "Every way Slugbot can fail, and the status code each one maps to."},
     {"key": "DSC", "name": "Discord opponent names", "blurb": "Opponent names come from Discord. A failed lookup shows \"Unknown\" and never fails the request."},
     {"key": "CCH", "name": "Name cache", "blurb": "Discord names are cached in a named Workers Cache API cache, per data center, with a per-env TTL."},
@@ -525,7 +527,7 @@ def run(method, path, **env):
       "steps": ["Run it"],
       "expected": [
         "Player URL `https://api.slugbot.xyz/pvplb/459532023690821643/1v1%20-%20ranked%20dbd/player/273849165028374619`, with a single slash after `pvplb` and spaces encoded as `%20`",
-        "Batch URL `https://api.slugbot.xyz/pvplb/459532023690821643/1v1%20-%20ranked%20dbd/match/batch?userId=273849165028374619&limit=10&complete=true`",
+        "Batch URL `https://api.slugbot.xyz/pvplb/459532023690821643/1v1%20-%20ranked%20dbd/match/batch?userId=273849165028374619&limit=15&complete=false`",
         "Discord URL `https://discord.com/api/v10/users/1048372615940283746`"
       ],
       "verify": [],
@@ -686,7 +688,7 @@ def run(method, path, **env):
       "setup": [],
       "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<KNOWN_PLAYER_ID>"}],
       "expected": [
-        "`200` with keys `playerName`, `seasonWinrate`, `totalGames`, `totalGamesWon`, `totalGamesLost`, `currentStreak`, `currentRank`, `currentPoints`, `lastMatches`",
+        "`200` with keys `playerName`, `seasonWinrate`, `totalGames`, `totalGamesWon`, `totalGamesLost`, `currentStreak`, `currentRank`, `currentPoints`, `lastMatches`, `currentMatch`",
         "`lastMatches` has at most 10 entries, newest `matchDate` first, each date ISO 8601 ending in `Z`",
         "Each match has `opponentName`, `pointsGained` (negative on losses), `matchDate`, `isWin`, `playerScore`, `opponentScore`, `playerRankBefore`, `opponentRankBefore`",
         "`playerName`, rank and points match what the Slugbot leaderboard shows for this player in Discord",
@@ -737,7 +739,7 @@ def run(method, path, **env):
       "steps": ["`call(FakeSlugbot(batches={None: (200, _page([_match(3000, False), _match(4000, True), _match(1000, True), _match(5000, True)]))}))`"],
       "expected": ["`isWin` order `[true, true, false, true]`", "`currentStreak: 2`", "Exactly one batch call, because a loss is on the first page"],
       "verify": [],
-      "agentNotes": "Also check that a 12-match page returns only 10 lastMatches. If it returns 12, report it as a finding, not as a harness bug: the code relies on Slugbot's limit=10."
+      "agentNotes": "Also check that a 12-match page returns only 10 lastMatches: the first page asks for 15 (finished and unfinished mixed) and the code keeps the 10 newest finished ones."
     },
     {
       "id": "PLR-06", "area": "PLR", "title": "Unreported scores are null",
@@ -775,7 +777,7 @@ def run(method, path, **env):
       "prereqs": [],
       "setup": ["Wrap a FakeSlugbot in a send function that also records `headers`"],
       "steps": ["Call once"],
-      "expected": ["Two GETs: `/player/<id>` and `/match/batch?userId=<id>&limit=10&complete=true`", "Headers `Authorization: Bearer <SLUGBOT_API_KEY>` and `Accept: application/json`", "The two calls start in parallel, not one after the other"],
+      "expected": ["Two GETs: `/player/<id>` and `/match/batch?userId=<id>&limit=15&complete=false` (unfiltered, so the same page shows the current match; older streak pages use `limit=10&complete=true`)", "Headers `Authorization: Bearer <SLUGBOT_API_KEY>` and `Accept: application/json`", "The two calls start in parallel, not one after the other"],
       "verify": [],
       "agentNotes": "For parallelism, make the fake await a short asyncio.sleep and check that both calls started before either finished."
     },
@@ -859,6 +861,67 @@ def run(method, path, **env):
       "expected": ["All 10 `lastMatches` are wins and `currentStreak` ≥ 10, matching the player's real streak", "The tail shows more than one `match/batch` call (DEBUG `Slugbot request ok` lines)", "Response time stays reasonable (under about 3 s)"],
       "verify": [],
       "agentNotes": "BLOCKED if no STREAK_PLAYER_ID was given."
+    },
+
+    {
+      "id": "CUR-01", "area": "CUR", "title": "An idle player is not in a match",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": ["KNOWN_PLAYER_ID, not currently playing"],
+      "setup": ["Unit: a first page with only finished matches, and an empty one"],
+      "steps": [{"code": "curl -sS https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<KNOWN_PLAYER_ID>"}],
+      "expected": ["`currentMatch` is exactly `{\"isInMatch\": false, \"opponentName\": null, \"opponentRank\": null}`", "No `/player` call for anyone but the player"],
+      "verify": ["`PlayerDetailsCurrentMatchTest.test_only_finished_matches` and `test_no_matches`"],
+      "agentNotes": "If the known player happens to be mid-match, re-run later rather than marking FAIL."
+    },
+    {
+      "id": "CUR-02", "area": "CUR", "title": "A player in a match gets the opponent's name and rank",
+      "env": ["unit", "staging"], "agent": "harness+staging",
+      "prereqs": ["IN_MATCH_ID (optional): a player in a ranked match right now"],
+      "setup": ["Unit: a first page whose newest unfinished match (`winTeam: -1`) has the player and an opponent"],
+      "steps": [{"code": "curl -sS https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<IN_MATCH_ID>"}],
+      "expected": ["`currentMatch.isInMatch: true`", "`opponentName` is the opponent's Discord display name", "`opponentRank` is the opponent's current leaderboard rank, or `-1` if they're unranked", "The match in progress isn't in `lastMatches` and doesn't affect `currentStreak`"],
+      "verify": ["`PlayerDetailsCurrentMatchTest.test_in_match` and `test_in_match_on_second_team`"],
+      "agentNotes": "Staging part is BLOCKED if no IN_MATCH_ID was given. Matches end, so `false` on staging may just mean it finished: re-check with the player."
+    },
+    {
+      "id": "CUR-03", "area": "CUR", "title": "Searching for an opponent is not a match",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A first page whose newest unfinished match has only the player in it"],
+      "steps": ["Call the player details handler"],
+      "expected": ["`currentMatch.isInMatch: false` with null opponent fields", "No opponent `/player` or Discord call"],
+      "verify": ["`PlayerDetailsCurrentMatchTest.test_searching_for_opponent_is_not_in_match`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CUR-04", "area": "CUR", "title": "Joining an open match right after finishing one",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A finished match with a newer `timestamp` than an unfinished one the player is in (Slugbot stamps finished matches when they end, open ones when they're created)"],
+      "steps": ["Call the player details handler"],
+      "expected": ["`currentMatch.isInMatch: true`: the finished match listed first doesn't hide the live one"],
+      "verify": ["`PlayerDetailsCurrentMatchTest.test_joined_open_match_after_finishing_another`"],
+      "agentNotes": "One reason the first page asks for 15 matches rather than 10."
+    },
+    {
+      "id": "CUR-05", "area": "CUR", "title": "Failed opponent lookups never fail the request",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["An in-match first page, with the opponent's `/player` returning 404, 500, a bad body or a network error, and separately a failing Discord lookup"],
+      "steps": ["Call the player details handler for each failure"],
+      "expected": ["Always `200` with `currentMatch.isInMatch: true` and the player's own fields intact", "A failed rank lookup gives `opponentRank: -1`", "A failed name lookup gives `opponentName: \"Unknown\"`"],
+      "verify": ["`PlayerDetailsCurrentMatchTest.test_failed_rank_lookup_is_unranked` and `test_failed_name_lookup_is_unknown`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CUR-06", "area": "CUR", "title": "Unfinished matches don't crowd out lastMatches",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A first page with an open match plus 11 finished wins and no next page"],
+      "steps": ["Call the player details handler"],
+      "expected": ["`lastMatches` has 10 entries, all finished", "`currentStreak: 11`, counting every finished match on the page", "`currentMatch.isInMatch: true`", "An opponent who is both current and in `lastMatches` is looked up in Discord once"],
+      "verify": ["`PlayerDetailsCurrentMatchTest.test_open_match_does_not_take_a_last_matches_slot` and `test_current_opponent_looked_up_once_in_discord`"],
+      "agentNotes": ""
     },
 
     {

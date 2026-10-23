@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from api.dtos import MatchDto, PlayerDetailsDto
+from api.dtos import CurrentMatchDto, MatchDto, PlayerDetailsDto
 from api.players.matches import PlayerMatch, score, winrate_percent
 from api.slugbot import SlugbotPlayerDto
 
 UNKNOWN_NAME = "Unknown"
+
+NOT_IN_MATCH = CurrentMatchDto(is_in_match=False, opponent_name=None, opponent_rank=None)
 
 
 def to_match(pm: PlayerMatch, names: dict[str, str]) -> MatchDto:
@@ -23,7 +25,11 @@ def to_match(pm: PlayerMatch, names: dict[str, str]) -> MatchDto:
 
 
 def to_player_details(
-    player: SlugbotPlayerDto, matches: list[PlayerMatch], names: dict[str, str], streak: int
+    player: SlugbotPlayerDto,
+    matches: list[PlayerMatch],
+    names: dict[str, str],
+    streak: int,
+    current_match: CurrentMatchDto,
 ) -> PlayerDetailsDto:
     return PlayerDetailsDto(
         player_name=player.display_name,
@@ -35,4 +41,13 @@ def to_player_details(
         current_rank=player.rank,
         current_points=player.points,
         last_matches=[to_match(pm, names) for pm in matches],
+        current_match=current_match,
+    )
+
+
+def to_current_match(opponent_id: str, names: dict[str, str], rank: int) -> CurrentMatchDto:
+    return CurrentMatchDto(
+        is_in_match=True,
+        opponent_name=names.get(opponent_id, UNKNOWN_NAME),
+        opponent_rank=rank,
     )
