@@ -76,6 +76,10 @@ class SlugbotDtoParsingTest(unittest.TestCase):
             datetime(2026, 1, 9, 19, 1, 31, 309000, tzinfo=timezone.utc),
         )
 
+    def test_player_from_dict_unranked(self):
+        data = {k: v for k, v in PLAYER_JSON.items() if k != "rank"}
+        self.assertEqual(SlugbotPlayerDto.from_dict(data).rank, -1)
+
     def test_match_batch_from_dict(self):
         batch = SlugbotMatchBatchDto.from_dict(MATCH_BATCH_JSON)
         self.assertTrue(batch.success)

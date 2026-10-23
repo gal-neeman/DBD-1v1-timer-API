@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+# Slugbot omits "rank" for unranked players.
+UNRANKED = -1
+
 
 def _from_epoch_ms(ms: int) -> datetime:
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
@@ -43,7 +46,7 @@ class SlugbotPlayerDto:
             leader_board_id=data["leaderBoardId"],
             display_name=data["displayName"],
             members=list(data["members"]),
-            rank=int(data["rank"]),
+            rank=int(data.get("rank", UNRANKED)),
             matches_played=int(data["matchesPlayed"]),
             matches_won=int(data["matchesWon"]),
             points=float(data["points"]),

@@ -109,7 +109,7 @@ class SlugbotClientTest(unittest.TestCase):
             asyncio.run(make_client(FakeSend(body="<html>")).get_player("1"))
 
     def test_schema_mismatch(self):
-        body = json.dumps({k: v for k, v in PLAYER_JSON.items() if k != "rank"})
+        body = json.dumps({k: v for k, v in PLAYER_JSON.items() if k != "elo"})
         with self.assertLogs("dbd1v1timerapi", level="WARNING"), self.assertRaisesRegex(
             SlugbotError, "unexpected response shape"
         ):
