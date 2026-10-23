@@ -50,5 +50,5 @@ def win_streak(results: list[int]) -> int:
     return streak
 
 
-def winrate_percent(won: int, played: int) -> float:
-    return round(won / played * 100, 2) if played > 0 else 0.0
+def winrate_percent(won: int, played: int) -> int:
+    return round(won / played * 100) if played > 0 else 0

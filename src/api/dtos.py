@@ -63,7 +63,10 @@ class MatchDto(Dto):
 @dataclass(frozen=True, slots=True)
 class PlayerDetailsDto(Dto):
     player_name: str
-    season_winrate: float
+    season_winrate: int
+    total_games: int
+    total_games_won: int
+    total_games_lost: int
     current_streak: int
     current_rank: int
     current_points: float

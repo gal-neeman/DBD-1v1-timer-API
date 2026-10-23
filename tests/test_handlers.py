@@ -142,7 +142,10 @@ class PlayerDetailsMappingTest(unittest.TestCase):
             {k: v for k, v in body.items() if k != "lastMatches"},
             {
                 "playerName": "TestPlayer",
-                "seasonWinrate": 87.5,
+                "seasonWinrate": 88,
+                "totalGames": 8,
+                "totalGamesWon": 7,
+                "totalGamesLost": 1,
                 "currentStreak": 2,
                 "currentRank": 1,
                 "currentPoints": 30.10524021259957,
@@ -242,7 +245,8 @@ class PlayerDetailsMappingTest(unittest.TestCase):
         send = FakeSlugbot(player=(200, player), batches={None: (200, _page([]))})
         discord = FakeDiscord()
         body = json.loads(self._call(send, discord).render())
-        self.assertEqual(body["seasonWinrate"], 0.0)
+        self.assertEqual(body["seasonWinrate"], 0)
+        self.assertEqual((body["totalGames"], body["totalGamesWon"], body["totalGamesLost"]), (0, 0, 0))
         self.assertEqual(body["currentStreak"], 0)
         self.assertEqual(body["lastMatches"], [])
         self.assertEqual(discord.urls, [])

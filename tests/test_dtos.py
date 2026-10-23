@@ -18,7 +18,10 @@ class DtoSerializationTest(unittest.TestCase):
         )
         dto = PlayerDetailsDto(
             player_name="TestPlayer",
-            season_winrate=0.5,
+            season_winrate=50,
+            total_games=10,
+            total_games_won=5,
+            total_games_lost=5,
             current_streak=3,
             current_rank=7,
             current_points=1234.5,
@@ -28,7 +31,10 @@ class DtoSerializationTest(unittest.TestCase):
             dto.to_dict(),
             {
                 "playerName": "TestPlayer",
-                "seasonWinrate": 0.5,
+                "seasonWinrate": 50,
+                "totalGames": 10,
+                "totalGamesWon": 5,
+                "totalGamesLost": 5,
                 "currentStreak": 3,
                 "currentRank": 7,
                 "currentPoints": 1234.5,

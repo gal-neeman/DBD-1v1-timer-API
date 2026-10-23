@@ -28,6 +28,9 @@ def to_player_details(
     return PlayerDetailsDto(
         player_name=player.display_name,
         season_winrate=winrate_percent(player.matches_won, player.matches_played),
+        total_games=player.matches_played,
+        total_games_won=player.matches_won,
+        total_games_lost=player.matches_played - player.matches_won,
         current_streak=streak,
         current_rank=player.rank,
         current_points=player.points,

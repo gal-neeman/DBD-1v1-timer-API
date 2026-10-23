@@ -686,11 +686,12 @@ def run(method, path, **env):
       "setup": [],
       "steps": [{"code": "curl -sS -i https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<KNOWN_PLAYER_ID>"}],
       "expected": [
-        "`200` with keys `playerName`, `seasonWinrate`, `currentStreak`, `currentRank`, `currentPoints`, `lastMatches`",
+        "`200` with keys `playerName`, `seasonWinrate`, `totalGames`, `totalGamesWon`, `totalGamesLost`, `currentStreak`, `currentRank`, `currentPoints`, `lastMatches`",
         "`lastMatches` has at most 10 entries, newest `matchDate` first, each date ISO 8601 ending in `Z`",
         "Each match has `opponentName`, `pointsGained` (negative on losses), `matchDate`, `isWin`, `playerScore`, `opponentScore`, `playerRankBefore`, `opponentRankBefore`",
         "`playerName`, rank and points match what the Slugbot leaderboard shows for this player in Discord",
-        "`seasonWinrate` is between 0 and 100 with at most 2 decimals"
+        "`seasonWinrate` is an integer between 0 and 100",
+        "`totalGamesWon + totalGamesLost == totalGames`"
       ],
       "verify": ["Cross-check the last 2-3 matches against the match history in the DBDLeague Discord"],
       "agentNotes": "Assert the shape and invariants: sorted dates, signs of pointsGained match isWin, isWin=true matches have playerScore > opponentScore when scores are present, and currentStreak equals the count of leading isWin=true (or is greater when all 10 are wins)."
@@ -702,7 +703,7 @@ def run(method, path, **env):
       "setup": ["`call(FakeSlugbot(player=(200, PLAYER_JSON), batches={None: (200, MATCH_BATCH_JSON | {\"paging\": {\"nextCursor\": None, \"hasNextPage\": False}})}))`"],
       "steps": ["Run it"],
       "expected": [
-        "`playerName: \"TestPlayer\"`, `seasonWinrate: 87.5` (7 of 8), `currentStreak: 1`, `currentRank: 1`, `currentPoints: 30.10524021259957`",
+        "`playerName: \"TestPlayer\"`, `seasonWinrate: 88` (7 of 8), `totalGames: 8`, `totalGamesWon: 7`, `totalGamesLost: 1`,`currentStreak: 1`, `currentRank: 1`, `currentPoints: 30.10524021259957`",
         "`lastMatches[0]` is `{\"opponentName\":\"Nelly\",\"pointsGained\":7.360593541613343,\"matchDate\":\"2026-10-19T08:22:18.435000Z\",\"isWin\":true,\"playerScore\":2,\"opponentScore\":0,\"playerRankBefore\":667,\"opponentRankBefore\":3972}`"
       ],
       "verify": [],
@@ -719,12 +720,12 @@ def run(method, path, **env):
       "agentNotes": ""
     },
     {
-      "id": "PLR-04", "area": "PLR", "title": "Winrate rounds to 2 decimals and handles 0 matches",
+      "id": "PLR-04", "area": "PLR", "title": "Winrate rounds to an integer and handles 0 matches",
       "env": ["unit"], "agent": "harness",
       "prereqs": [],
       "setup": ["Player bodies: `PLAYER_JSON | {\"matchesWon\": 2, \"matchesPlayed\": 3}` and `PLAYER_JSON | {\"matchesWon\": 0, \"matchesPlayed\": 0}`"],
       "steps": ["Call once with each"],
-      "expected": ["`seasonWinrate: 66.67`", "`seasonWinrate: 0.0` with no division error"],
+      "expected": ["`seasonWinrate: 67`", "`seasonWinrate: 0` with no division error"],
       "verify": [],
       "agentNotes": ""
     },
