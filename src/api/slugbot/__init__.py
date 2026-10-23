@@ -5,6 +5,8 @@ from api.slugbot.dtos import (
     SlugbotMatchBatchDto,
     SlugbotMatchDto,
     SlugbotMatchParticipantDto,
+    SlugbotMatchSeatDto,
+    SlugbotOpenMatchDto,
     SlugbotPagingDto,
     SlugbotPlayerDto,
 )
@@ -17,7 +19,9 @@ __all__ = [
     "SlugbotMatchBatchDto",
     "SlugbotMatchDto",
     "SlugbotMatchParticipantDto",
+    "SlugbotMatchSeatDto",
     "SlugbotNotFound",
+    "SlugbotOpenMatchDto",
     "SlugbotPagingDto",
     "SlugbotPlayerDto",
     "SlugbotUnavailable",

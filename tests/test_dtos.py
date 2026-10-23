@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from api.dtos import MatchDto, PlayerDetailsDto
+from api.dtos import CurrentMatchDto, MatchDto, PlayerDetailsDto
 
 
 class DtoSerializationTest(unittest.TestCase):
@@ -26,6 +26,7 @@ class DtoSerializationTest(unittest.TestCase):
             current_rank=7,
             current_points=1234.5,
             last_matches=[match],
+            current_match=CurrentMatchDto(is_in_match=True, opponent_name="Nelly", opponent_rank=-1),
         )
         self.assertEqual(
             dto.to_dict(),
@@ -50,6 +51,7 @@ class DtoSerializationTest(unittest.TestCase):
                         "opponentRankBefore": 3,
                     }
                 ],
+                "currentMatch": {"isInMatch": True, "opponentName": "Nelly", "opponentRank": -1},
             },
         )
 

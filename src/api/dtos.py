@@ -61,6 +61,15 @@ class MatchDto(Dto):
 
 
 @dataclass(frozen=True, slots=True)
+class CurrentMatchDto(Dto):
+    """Opponent fields are None unless is_in_match. Searching for an opponent isn't a match."""
+
+    is_in_match: bool
+    opponent_name: str | None
+    opponent_rank: int | None  # -1 if unranked or the lookup failed
+
+
+@dataclass(frozen=True, slots=True)
 class PlayerDetailsDto(Dto):
     player_name: str
     season_winrate: int
@@ -70,4 +79,5 @@ class PlayerDetailsDto(Dto):
     current_streak: int
     current_rank: int
     current_points: float
+    current_match: CurrentMatchDto
     last_matches: list[MatchDto]

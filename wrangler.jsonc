@@ -55,6 +55,7 @@
 		"DISCORD_BASE_URL": "https://discord.com/api/v10",
 		"DISCORD_TIMEOUT_SEC": "15",
 		"DISCORD_NAME_CACHE_TTL_SEC": "18000",
+		"SLUGBOT_RANK_CACHE_TTL_SEC": "600",
 		// Named Cache API cache (caches.open), one per environment.
 		"CACHE_NAME": "dbd1v1timerapi",
 		"STATUS_ENABLED": "true",
@@ -86,6 +87,7 @@
 				"DISCORD_BASE_URL": "https://discord.com/api/v10",
 				"DISCORD_TIMEOUT_SEC": "15",
 				"DISCORD_NAME_CACHE_TTL_SEC": "60",
+				"SLUGBOT_RANK_CACHE_TTL_SEC": "60",
 				"CACHE_NAME": "dbd1v1timerapi-staging",
 				"STATUS_ENABLED": "true",
 				"FAST_POLL_SEC": "20",

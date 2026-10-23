@@ -12,7 +12,7 @@ from api.slugbot import SlugbotClient
 from api.transport import HttpResponse
 from tests.discord.test_dtos import USER_JSON
 from tests.fakes import MemoryCache
-from tests.slugbot.test_dtos import MATCH_BATCH_JSON, PLAYER_JSON
+from tests.slugbot.test_dtos import MATCH_BATCH_JSON, OPEN_MATCH_JSON, PLAYER_JSON
 from tests.test_config import make_env
 from tests.test_routing import make_context
 
@@ -42,12 +42,14 @@ def _wins(count, newest):
 
 
 class FakeSlugbot:
-    """HttpSend serving the player and match batch pages (keyed by nextCursor) separately."""
+    """HttpSend serving the player and match batch pages (keyed by nextCursor) separately.
+    `players` overrides the player response per user id; a listed exception is raised."""
 
-    def __init__(self, player=(200, PLAYER_JSON), batches=None, error=None):
+    def __init__(self, player=(200, PLAYER_JSON), batches=None, error=None, players=None):
         self.player = player
         self.batches = batches if batches is not None else {None: (200, _page([_match(1000, True)]))}
         self.error = error
+        self.players = players or {}
         self.urls = []
 
     async def __call__(self, method, url, headers):
@@ -58,11 +60,17 @@ class FakeSlugbot:
             cursor = parse_qs(urlsplit(url).query).get("nextCursor", [None])[0]
             status, body = self.batches[None if cursor is None else int(cursor)]
         else:
-            status, body = self.player
+            outcome = self.players.get(url.rsplit("/", 1)[1], self.player)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            status, body = outcome
         return HttpResponse(status, json.dumps(body))
 
     def batch_urls(self):
         return [url for url in self.urls if "/match/batch" in url]
+
+    def player_urls(self):
+        return [url for url in self.urls if "/player/" in url]
 
 
 class FakeDiscord:
@@ -91,6 +99,19 @@ def make_slugbot_context(send, discord_send=None, cache=None):
         DiscordClient(settings, discord_send or FakeDiscord()),
         cache if cache is not None else MemoryCache(),
     )
+
+
+def _open(timestamp, solo=False):
+    """An unfinished match between PLAYER_ID (team 0) and OPPONENT_ID (team 1), or with
+    PLAYER_ID alone if solo (still searching for an opponent)."""
+    match = copy.deepcopy(OPEN_MATCH_JSON)
+    match["timestamp"] = timestamp
+    if solo:
+        match["participants"] = match["participants"][:1]
+    return match
+
+
+NOT_IN_MATCH = {"isInMatch": False, "opponentName": None, "opponentRank": None}
 
 
 def _is_wins(body):
@@ -149,6 +170,7 @@ class PlayerDetailsMappingTest(unittest.TestCase):
                 "currentStreak": 2,
                 "currentRank": 1,
                 "currentPoints": 30.10524021259957,
+                "currentMatch": NOT_IN_MATCH,
             },
         )
         self.assertEqual(_is_wins(body), [True, True, False, True])
@@ -156,7 +178,8 @@ class PlayerDetailsMappingTest(unittest.TestCase):
         self.assertTrue(any(f"/player/{PLAYER_ID}" in url for url in send.urls))
         # The streak ended on the first page, so no older page is fetched.
         self.assertEqual(len(send.batch_urls()), 1)
-        self.assertIn(f"userId={PLAYER_ID}&limit=10", send.batch_urls()[0])
+        # Unfiltered, so the same page also shows the current match.
+        self.assertIn(f"userId={PLAYER_ID}&limit=15&complete=false", send.batch_urls()[0])
 
     def test_match_fields(self):
         loss = _match(1792398138435, False)
@@ -418,6 +441,187 @@ class PlayerDetailsErrorTest(unittest.TestCase):
         self.assertEqual(response.status, 502)
         self.assertEqual(response.body["error"]["code"], "upstream_error")
         self.assertIn("Slugbot batch unsuccessful", [r.getMessage() for r in logs.records])
+
+
+class PlayerDetailsCurrentMatchTest(unittest.TestCase):
+    def _call(self, matches, players=None, discord_send=None, cache=None):
+        """Body of a player details request on one first page; also returns the fake."""
+        send = FakeSlugbot(batches={None: (200, _page(matches))}, players=players)
+        ctx = make_slugbot_context(send, discord_send, cache)
+        response = asyncio.run(handlers.get_player_details(ctx, {"player_id": PLAYER_ID}))
+        self.assertEqual(response.status, 200)
+        return json.loads(response.render()), send
+
+    @staticmethod
+    def _opponent_lookups(send):
+        return [url for url in send.player_urls() if url.endswith(f"/player/{OPPONENT_ID}")]
+
+    def test_only_finished_matches(self):
+        body, send = self._call([_match(2000, True), _match(1000, False)])
+        self.assertEqual(body["currentMatch"], NOT_IN_MATCH)
+        self.assertEqual(self._opponent_lookups(send), [])
+
+    def test_no_matches(self):
+        discord = FakeDiscord()
+        body, _ = self._call([], discord_send=discord)
+        self.assertEqual(body["currentMatch"], NOT_IN_MATCH)
+        self.assertEqual(discord.urls, [])
+
+    def test_in_match(self):
+        body, send = self._call(
+            [_open(3000), _match(2000, True)],
+            players={OPPONENT_ID: (200, {**PLAYER_JSON, "rank": 312})},
+        )
+        self.assertEqual(
+            body["currentMatch"], {"isInMatch": True, "opponentName": "Nelly", "opponentRank": 312}
+        )
+        self.assertEqual(len(self._opponent_lookups(send)), 1)
+        # The open match isn't a finished one, so it's not in lastMatches or the streak.
+        self.assertEqual(_is_wins(body), [True])
+        self.assertEqual(body["currentStreak"], 1)
+
+    def test_in_match_on_second_team(self):
+        match = _open(3000)
+        for participant in match["participants"]:
+            participant["teamId"] = 1 - participant["teamId"]
+        body, _ = self._call([match], players={OPPONENT_ID: (200, {**PLAYER_JSON, "rank": 7})})
+        self.assertEqual(body["currentMatch"]["opponentRank"], 7)
+
+    def test_searching_for_opponent_is_not_in_match(self):
+        discord = FakeDiscord()
+        body, send = self._call([_open(3000, solo=True)], discord_send=discord)
+        self.assertEqual(body["currentMatch"], NOT_IN_MATCH)
+        self.assertEqual(self._opponent_lookups(send), [])
+        self.assertEqual(discord.urls, [])
+
+    def test_joined_open_match_after_finishing_another(self):
+        # The open match was created before the finished one ended, so it sorts second.
+        body, _ = self._call([_match(3000, True), _open(2000)])
+        self.assertTrue(body["currentMatch"]["isInMatch"])
+
+    def test_newest_unfinished_match_wins(self):
+        # A newer search beats an older match that's still listed as unfinished.
+        body, _ = self._call([_open(3000, solo=True), _open(2000)])
+        self.assertEqual(body["currentMatch"], NOT_IN_MATCH)
+
+    def test_ignores_unfinished_matches_without_player(self):
+        other = _open(3000)
+        for participant in other["participants"]:
+            participant["playerId"] = "999999999999999999"
+        body, _ = self._call([other])
+        self.assertEqual(body["currentMatch"], NOT_IN_MATCH)
+
+    def test_open_match_does_not_take_a_last_matches_slot(self):
+        # 11 straight wins on a final page, plus the match in progress.
+        body, _ = self._call([_open(200)] + _wins(11, newest=100))
+        self.assertEqual(_is_wins(body), [True] * 10)
+        # The streak counts every finished match on the page, not just the 10 shown.
+        self.assertEqual(body["currentStreak"], 11)
+        self.assertTrue(body["currentMatch"]["isInMatch"])
+
+    def test_current_opponent_looked_up_once_in_discord(self):
+        # The current opponent is also the opponent in lastMatches.
+        discord = FakeDiscord()
+        body, _ = self._call([_open(3000), _match(2000, True)], discord_send=discord)
+        self.assertEqual(body["currentMatch"]["opponentName"], "Nelly")
+        self.assertEqual(body["lastMatches"][0]["opponentName"], "Nelly")
+        self.assertEqual(len(discord.urls), 1)
+
+    def test_unranked_opponent(self):
+        unranked = {k: v for k, v in PLAYER_JSON.items() if k != "rank"}
+        body, _ = self._call([_open(3000)], players={OPPONENT_ID: (200, unranked)})
+        self.assertEqual(body["currentMatch"]["opponentRank"], -1)
+
+    def test_failed_rank_lookup_is_unranked(self):
+        for outcome in ((404, {}), (500, {}), (200, {}), OSError("connection reset")):
+            with self.subTest(outcome=outcome):
+                with self.assertLogs("dbd1v1timerapi", level="INFO"):
+                    body, _ = self._call([_open(3000)], players={OPPONENT_ID: outcome})
+                self.assertEqual(
+                    body["currentMatch"],
+                    {"isInMatch": True, "opponentName": "Nelly", "opponentRank": -1},
+                )
+                # The player's own record is unaffected.
+                self.assertEqual(body["currentRank"], 1)
+
+    def test_failed_name_lookup_is_unknown(self):
+        discord = FakeDiscord({OPPONENT_ID: (404, {})})
+        with self.assertLogs("dbd1v1timerapi", level="INFO"):
+            body, _ = self._call([_open(3000)], discord_send=discord)
+        self.assertEqual(body["currentMatch"]["opponentName"], "Unknown")
+        self.assertEqual(body["currentMatch"]["opponentRank"], 1)
+
+
+class PlayerDetailsRankCacheTest(unittest.TestCase):
+    KEY = f"slugbot-rank/{OPPONENT_ID}"
+
+    def _call(self, cache, players=None):
+        return PlayerDetailsCurrentMatchTest._call(self, [_open(3000)], players, cache=cache)
+
+    @staticmethod
+    def _rank_puts(cache):
+        return [put for put in cache.puts if put[0].startswith("slugbot-rank/")]
+
+    def test_cold_cache_fetches_and_stores(self):
+        cache = MemoryCache()
+        body, send = self._call(cache, players={OPPONENT_ID: (200, {**PLAYER_JSON, "rank": 312})})
+        self.assertEqual(body["currentMatch"]["opponentRank"], 312)
+        self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+        self.assertEqual(self._rank_puts(cache), [(self.KEY, "312", 600)])
+
+    def test_warm_cache_skips_slugbot(self):
+        cache = MemoryCache({self.KEY: "7"})
+        body, send = self._call(cache)
+        self.assertEqual(body["currentMatch"]["opponentRank"], 7)
+        # Only the player's own record is fetched.
+        self.assertEqual(len(send.player_urls()), 1)
+        self.assertEqual(PlayerDetailsCurrentMatchTest._opponent_lookups(send), [])
+        self.assertEqual(self._rank_puts(cache), [])
+
+    def test_own_rank_is_never_cached(self):
+        cache = MemoryCache({f"slugbot-rank/{PLAYER_ID}": "99"})
+        body, _ = self._call(cache)
+        self.assertEqual(body["currentRank"], 1)
+        self.assertEqual([put[0] for put in self._rank_puts(cache)], [self.KEY])
+
+    def test_unranked_opponent_is_cached(self):
+        cache = MemoryCache()
+        unranked = {k: v for k, v in PLAYER_JSON.items() if k != "rank"}
+        body, _ = self._call(cache, players={OPPONENT_ID: (200, unranked)})
+        self.assertEqual(body["currentMatch"]["opponentRank"], -1)
+        self.assertEqual(self._rank_puts(cache), [(self.KEY, "-1", 600)])
+
+    def test_failed_lookup_not_cached(self):
+        for outcome in ((404, {}), (500, {}), OSError("connection reset")):
+            with self.subTest(outcome=outcome):
+                cache = MemoryCache()
+                for _ in range(2):
+                    with self.assertLogs("dbd1v1timerapi", level="INFO"):
+                        body, send = self._call(cache, players={OPPONENT_ID: outcome})
+                    self.assertEqual(body["currentMatch"]["opponentRank"], -1)
+                    # Looked up again on the second request, so an outage doesn't stick.
+                    self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+                self.assertEqual(self._rank_puts(cache), [])
+
+    def test_corrupt_cached_value_is_a_miss(self):
+        cache = MemoryCache({self.KEY: "abc"})
+        body, send = self._call(cache)
+        self.assertEqual(body["currentMatch"]["opponentRank"], 1)
+        self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+        self.assertEqual(self._rank_puts(cache), [(self.KEY, "1", 600)])
+
+    def test_cache_failure_falls_back_to_slugbot(self):
+        cache = MemoryCache(error=RuntimeError("cache down"))
+        with self.assertLogs("dbd1v1timerapi", level="WARNING") as logs:
+            body, send = self._call(cache)
+        self.assertEqual(body["currentMatch"]["opponentRank"], 1)
+        self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+        rank_failures = [
+            record.getMessage()
+            for record in logs.records
+            if getattr(record, "player_id", None) == OPPONENT_ID
+        ]
+        self.assertEqual(rank_failures, ["Cache get failed", "Cache put failed"])
 
 
 if __name__ == "__main__":
