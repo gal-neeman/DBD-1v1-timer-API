@@ -23,6 +23,8 @@ SLUGBOT_TIMEOUT_SEC_RANGE = (1, 30)
 DISCORD_TIMEOUT_SEC_RANGE = (1, 30)
 # How long a cached Discord display name is served before it's fetched again.
 DISCORD_NAME_CACHE_TTL_SEC_RANGE = (60, 604800)
+# How long a cached opponent rank is served before it's fetched again.
+SLUGBOT_RANK_CACHE_TTL_SEC_RANGE = (60, 3600)
 
 
 class ConfigError(Exception):
@@ -96,6 +98,7 @@ class Settings:
     discord_base_url: str
     discord_timeout_sec: float
     discord_name_cache_ttl_sec: int
+    slugbot_rank_cache_ttl_sec: int
     cache_name: str
     status_enabled: bool
     fast_poll_sec: int
@@ -125,6 +128,9 @@ class Settings:
             ),
             discord_name_cache_ttl_sec=_parse_bounded_int(
                 env, "DISCORD_NAME_CACHE_TTL_SEC", DISCORD_NAME_CACHE_TTL_SEC_RANGE
+            ),
+            slugbot_rank_cache_ttl_sec=_parse_bounded_int(
+                env, "SLUGBOT_RANK_CACHE_TTL_SEC", SLUGBOT_RANK_CACHE_TTL_SEC_RANGE
             ),
             cache_name=_parse_str(env, "CACHE_NAME"),
             status_enabled=_parse_bool(env, "STATUS_ENABLED"),

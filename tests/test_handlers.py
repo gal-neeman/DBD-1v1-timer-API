@@ -444,10 +444,10 @@ class PlayerDetailsErrorTest(unittest.TestCase):
 
 
 class PlayerDetailsCurrentMatchTest(unittest.TestCase):
-    def _call(self, matches, players=None, discord_send=None):
+    def _call(self, matches, players=None, discord_send=None, cache=None):
         """Body of a player details request on one first page; also returns the fake."""
         send = FakeSlugbot(batches={None: (200, _page(matches))}, players=players)
-        ctx = make_slugbot_context(send, discord_send)
+        ctx = make_slugbot_context(send, discord_send, cache)
         response = asyncio.run(handlers.get_player_details(ctx, {"player_id": PLAYER_ID}))
         self.assertEqual(response.status, 200)
         return json.loads(response.render()), send
@@ -550,6 +550,78 @@ class PlayerDetailsCurrentMatchTest(unittest.TestCase):
             body, _ = self._call([_open(3000)], discord_send=discord)
         self.assertEqual(body["currentMatch"]["opponentName"], "Unknown")
         self.assertEqual(body["currentMatch"]["opponentRank"], 1)
+
+
+class PlayerDetailsRankCacheTest(unittest.TestCase):
+    KEY = f"slugbot-rank/{OPPONENT_ID}"
+
+    def _call(self, cache, players=None):
+        return PlayerDetailsCurrentMatchTest._call(self, [_open(3000)], players, cache=cache)
+
+    @staticmethod
+    def _rank_puts(cache):
+        return [put for put in cache.puts if put[0].startswith("slugbot-rank/")]
+
+    def test_cold_cache_fetches_and_stores(self):
+        cache = MemoryCache()
+        body, send = self._call(cache, players={OPPONENT_ID: (200, {**PLAYER_JSON, "rank": 312})})
+        self.assertEqual(body["currentMatch"]["opponentRank"], 312)
+        self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+        self.assertEqual(self._rank_puts(cache), [(self.KEY, "312", 600)])
+
+    def test_warm_cache_skips_slugbot(self):
+        cache = MemoryCache({self.KEY: "7"})
+        body, send = self._call(cache)
+        self.assertEqual(body["currentMatch"]["opponentRank"], 7)
+        # Only the player's own record is fetched.
+        self.assertEqual(len(send.player_urls()), 1)
+        self.assertEqual(PlayerDetailsCurrentMatchTest._opponent_lookups(send), [])
+        self.assertEqual(self._rank_puts(cache), [])
+
+    def test_own_rank_is_never_cached(self):
+        cache = MemoryCache({f"slugbot-rank/{PLAYER_ID}": "99"})
+        body, _ = self._call(cache)
+        self.assertEqual(body["currentRank"], 1)
+        self.assertEqual([put[0] for put in self._rank_puts(cache)], [self.KEY])
+
+    def test_unranked_opponent_is_cached(self):
+        cache = MemoryCache()
+        unranked = {k: v for k, v in PLAYER_JSON.items() if k != "rank"}
+        body, _ = self._call(cache, players={OPPONENT_ID: (200, unranked)})
+        self.assertEqual(body["currentMatch"]["opponentRank"], -1)
+        self.assertEqual(self._rank_puts(cache), [(self.KEY, "-1", 600)])
+
+    def test_failed_lookup_not_cached(self):
+        for outcome in ((404, {}), (500, {}), OSError("connection reset")):
+            with self.subTest(outcome=outcome):
+                cache = MemoryCache()
+                for _ in range(2):
+                    with self.assertLogs("dbd1v1timerapi", level="INFO"):
+                        body, send = self._call(cache, players={OPPONENT_ID: outcome})
+                    self.assertEqual(body["currentMatch"]["opponentRank"], -1)
+                    # Looked up again on the second request, so an outage doesn't stick.
+                    self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+                self.assertEqual(self._rank_puts(cache), [])
+
+    def test_corrupt_cached_value_is_a_miss(self):
+        cache = MemoryCache({self.KEY: "abc"})
+        body, send = self._call(cache)
+        self.assertEqual(body["currentMatch"]["opponentRank"], 1)
+        self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+        self.assertEqual(self._rank_puts(cache), [(self.KEY, "1", 600)])
+
+    def test_cache_failure_falls_back_to_slugbot(self):
+        cache = MemoryCache(error=RuntimeError("cache down"))
+        with self.assertLogs("dbd1v1timerapi", level="WARNING") as logs:
+            body, send = self._call(cache)
+        self.assertEqual(body["currentMatch"]["opponentRank"], 1)
+        self.assertEqual(len(PlayerDetailsCurrentMatchTest._opponent_lookups(send)), 1)
+        rank_failures = [
+            record.getMessage()
+            for record in logs.records
+            if getattr(record, "player_id", None) == OPPONENT_ID
+        ]
+        self.assertEqual(rank_failures, ["Cache get failed", "Cache put failed"])
 
 
 if __name__ == "__main__":

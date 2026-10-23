@@ -190,7 +190,7 @@ details.more .inner { display: grid; gap: 10px; }
         <h2>Watching logs</h2>
         <p>Run this in a second terminal while you test staging. Each request prints one event, and its <code>logs</code> array holds the JSON lines the Worker wrote.</p>
         <pre><code>npx wrangler tail --env staging --format json</code></pre>
-        <p style="margin-top:8px">Staging logs at <code>DEBUG</code> and caches Discord names for <b>60 s</b>. Prod logs at <code>INFO</code> and caches for <b>18000 s</b> (5 h).</p>
+        <p style="margin-top:8px">Staging logs at <code>DEBUG</code> and caches Discord names and opponent ranks for <b>60 s</b>. Prod logs at <code>INFO</code> and caches names for <b>18000 s</b> (5 h) and ranks for <b>600 s</b> (10 min).</p>
       </div>
     </div>
     <div class="panel">
@@ -313,7 +313,7 @@ def run(method, path, **env):
     {"key": "CUR", "name": "Current match", "blurb": "The `currentMatch` object in GET /api/v1/players/{id}: whether the player is mid-match, and the opponent's name and rank. It comes from the same unfiltered first match page as `lastMatches`."},
     {"key": "SLG", "name": "Slugbot failures", "blurb": "Every way Slugbot can fail, and the status code each one maps to."},
     {"key": "DSC", "name": "Discord opponent names", "blurb": "Opponent names come from Discord. A failed lookup shows \"Unknown\" and never fails the request."},
-    {"key": "CCH", "name": "Name cache", "blurb": "Discord names are cached in a named Workers Cache API cache, per data center, with a per-env TTL."},
+    {"key": "CCH", "name": "Name and rank cache", "blurb": "Discord names and current-opponent ranks are cached in a named Workers Cache API cache, per data center, each with its own per-env TTL."},
     {"key": "LOG", "name": "Logging", "blurb": "One JSON line per event, an access line per request, nothing secret."},
     {"key": "PRD", "name": "Prod launch", "blurb": "Run these on prod right after the first deploy. They are manual on purpose."}
   ],
@@ -336,8 +336,8 @@ def run(method, path, **env):
       "setup": ["Open `wrangler.jsonc`"],
       "steps": ["Compare the top-level `vars` (prod) with `env.staging.vars`", "Compare `secrets.required` in both blocks"],
       "expected": [
-        "Both blocks have exactly the same 16 var names",
-        "Only three values differ: `DISCORD_NAME_CACHE_TTL_SEC` (prod `18000`, staging `60`), `CACHE_NAME` (prod `dbd1v1timerapi`, staging `dbd1v1timerapi-staging`) and `LOG_LEVEL` (prod `INFO`, staging `DEBUG`)",
+        "Both blocks have exactly the same 17 var names",
+        "Only four values differ: `DISCORD_NAME_CACHE_TTL_SEC` (prod `18000`, staging `60`), `SLUGBOT_RANK_CACHE_TTL_SEC` (prod `600`, staging `60`), `CACHE_NAME` (prod `dbd1v1timerapi`, staging `dbd1v1timerapi-staging`) and `LOG_LEVEL` (prod `INFO`, staging `DEBUG`)",
         "Both `secrets.required` lists are `SLUGBOT_API_KEY`, `DISCORD_BOT_TOKEN`"
       ],
       "verify": ["A var missing from one block makes that environment return 500 on every request (see CFG-01)"],
@@ -432,7 +432,7 @@ def run(method, path, **env):
         "An `ERROR` log `Unhandled error` with `reason` `ConfigError: Missing environment variable: DBDL_GUILD_ID` and an `exc` traceback",
         "The access log line still appears, with `status: 500`"
       ],
-      "verify": ["Repeat with each required var: DBDL_GUILD_ID, LEADERBOARD_ID, SLUGBOT_BASE_URL, SLUGBOT_TIMEOUT_SEC, DISCORD_BASE_URL, DISCORD_TIMEOUT_SEC, DISCORD_NAME_CACHE_TTL_SEC, CACHE_NAME, STATUS_ENABLED, FAST_POLL_SEC, SLOW_POLL_SEC, FAST_POLL_CAP_SEC, LATEST_VERSION, MIN_SUPPORTED_VERSION, SLUGBOT_API_KEY, DISCORD_BOT_TOKEN"],
+      "verify": ["Repeat with each required var: DBDL_GUILD_ID, LEADERBOARD_ID, SLUGBOT_BASE_URL, SLUGBOT_TIMEOUT_SEC, DISCORD_BASE_URL, DISCORD_TIMEOUT_SEC, DISCORD_NAME_CACHE_TTL_SEC, SLUGBOT_RANK_CACHE_TTL_SEC, CACHE_NAME, STATUS_ENABLED, FAST_POLL_SEC, SLOW_POLL_SEC, FAST_POLL_CAP_SEC, LATEST_VERSION, MIN_SUPPORTED_VERSION, SLUGBOT_API_KEY, DISCORD_BOT_TOKEN"],
       "agentNotes": "Loop over every required var."
     },
     {
@@ -466,7 +466,8 @@ def run(method, path, **env):
         "`FAST_POLL_CAP_SEC=\"-1\"` → 0, and `\"601\"` → 600",
         "`SLUGBOT_TIMEOUT_SEC=\"0\"` → 1, and `\"100\"` → 30",
         "`DISCORD_TIMEOUT_SEC=\"0\"` → 1, and `\"100\"` → 30",
-        "`DISCORD_NAME_CACHE_TTL_SEC=\"10\"` → 60, and `\"9999999\"` → 604800"
+        "`DISCORD_NAME_CACHE_TTL_SEC=\"10\"` → 60, and `\"9999999\"` → 604800",
+        "`SLUGBOT_RANK_CACHE_TTL_SEC=\"10\"` → 60, and `\"9999999\"` → 3600"
       ],
       "expected": [
         "Each field holds the clamped value shown",
@@ -879,7 +880,7 @@ def run(method, path, **env):
       "prereqs": ["IN_MATCH_ID (optional): a player in a ranked match right now"],
       "setup": ["Unit: a first page whose newest unfinished match (`winTeam: -1`) has the player and an opponent"],
       "steps": [{"code": "curl -sS https://dbd1v1-api-staging.truuehsoft.com/api/v1/players/<IN_MATCH_ID>"}],
-      "expected": ["`currentMatch.isInMatch: true`", "`opponentName` is the opponent's Discord display name", "`opponentRank` is the opponent's current leaderboard rank, or `-1` if they're unranked", "The match in progress isn't in `lastMatches` and doesn't affect `currentStreak`"],
+      "expected": ["`currentMatch.isInMatch: true`", "`opponentName` is the opponent's Discord display name", "`opponentRank` is the opponent's leaderboard rank (cached up to the rank TTL, see CCH-12), or `-1` if they're unranked", "The match in progress isn't in `lastMatches` and doesn't affect `currentStreak`"],
       "verify": ["`PlayerDetailsCurrentMatchTest.test_in_match` and `test_in_match_on_second_team`"],
       "agentNotes": "Staging part is BLOCKED if no IN_MATCH_ID was given. Matches end, so `false` on staging may just mean it finished: re-check with the player."
     },
@@ -1209,6 +1210,70 @@ def run(method, path, **env):
       "expected": ["Right away: the old name (cached)", "After 65 s: the new name", "On prod the same takes up to 5 h (TTL 18000)"],
       "verify": [],
       "agentNotes": "Manual: needs a Discord account change."
+    },
+    {
+      "id": "CCH-12", "area": "CCH", "title": "Cold rank cache: the opponent's rank is fetched and stored with the env TTL",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["A first page with an open match against OPPONENT_ID, whose player record has `rank: 312`. `cache = MemoryCache()`, `SLUGBOT_RANK_CACHE_TTL_SEC=\"600\"`"],
+      "steps": ["Call, then print `cache.puts`"],
+      "expected": ["`currentMatch.opponentRank: 312`", "One Slugbot `/player/<OPPONENT_ID>` call", "`cache.puts` has `(\"slugbot-rank/<OPPONENT_ID>\", \"312\", 600)`", "A `DEBUG` `Opponent rank cache` line with `hit: false`"],
+      "verify": ["`PlayerDetailsRankCacheTest.test_cold_cache_fetches_and_stores`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-13", "area": "CCH", "title": "Warm rank cache: no opponent lookup in Slugbot",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["The CCH-12 page, with `MemoryCache(entries={f\"slugbot-rank/{OPPONENT_ID}\": \"7\"})`"],
+      "steps": ["Call at DEBUG level and capture logs"],
+      "expected": ["`currentMatch.opponentRank: 7`", "The only Slugbot `/player/` call is for PLAYER_ID", "No `slugbot-rank/` puts", "A `DEBUG` `Opponent rank cache` line with `hit: true`"],
+      "verify": ["`PlayerDetailsRankCacheTest.test_warm_cache_skips_slugbot`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-14", "area": "CCH", "title": "The player's own rank is never cached",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["The CCH-12 page, with a stale `slugbot-rank/<PLAYER_ID>: \"99\"` entry"],
+      "steps": ["Call it"],
+      "expected": ["`currentRank` comes from Slugbot (`1`), not `99`", "The only `slugbot-rank/` put is for OPPONENT_ID"],
+      "verify": ["`PlayerDetailsRankCacheTest.test_own_rank_is_never_cached`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-15", "area": "CCH", "title": "Unranked opponents are cached, failed rank lookups are not",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Unranked: the opponent's record has no `rank`. Failed: the opponent's record returns 404, 500, or raises OSError"],
+      "steps": ["Call unranked once. Call each failure twice with the same cache"],
+      "expected": ["Unranked: `opponentRank: -1` and a put of `\"-1\"`", "Failed: `opponentRank: -1` both times, no `slugbot-rank/` puts, and Slugbot is asked again on the second request, so an outage doesn't stick"],
+      "verify": ["`PlayerDetailsRankCacheTest.test_unranked_opponent_is_cached` and `test_failed_lookup_not_cached`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-16", "area": "CCH", "title": "A broken or corrupt rank cache falls back to Slugbot",
+      "env": ["unit"], "agent": "harness",
+      "prereqs": [],
+      "setup": ["Broken: `MemoryCache(error=RuntimeError(\"cache down\"))`. Corrupt: `MemoryCache(entries={f\"slugbot-rank/{OPPONENT_ID}\": \"abc\"})`"],
+      "steps": ["Call each"],
+      "expected": ["`200` with the opponent's real rank both times", "Broken: `WARNING` `Cache get failed` and `Cache put failed` with `player_id: <OPPONENT_ID>`", "Corrupt: the rank is refetched and the entry is overwritten"],
+      "verify": ["`PlayerDetailsRankCacheTest.test_cache_failure_falls_back_to_slugbot` and `test_corrupt_cached_value_is_a_miss`"],
+      "agentNotes": ""
+    },
+    {
+      "id": "CCH-17", "area": "CCH", "title": "Staging: a repeat request skips the opponent's Slugbot lookup",
+      "env": ["staging"], "agent": "staging",
+      "prereqs": ["IN_MATCH_ID (optional): a player in a ranked match right now", "Tail running"],
+      "setup": [],
+      "steps": ["Request IN_MATCH_ID", "Within 30 s, request it again from the same machine"],
+      "expected": [
+        "First request: `Opponent rank cache` with `hit: false`, and `Slugbot request ok` lines for the player, the batch and the opponent",
+        "Second request: `Opponent rank cache` with `hit: true`, and no `Slugbot request ok` line for the opponent's `/player/` URL",
+        "Both responses have the same `currentMatch.opponentRank`"
+      ],
+      "verify": ["The cache lives per data center, as in CCH-08. After 65 s the opponent is looked up again (staging TTL 60 s)."],
+      "agentNotes": "BLOCKED if no IN_MATCH_ID was given. If the first request was already a hit (warm from earlier), that still passes the hit half."
     },
 
     {

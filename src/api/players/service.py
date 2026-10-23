@@ -11,8 +11,8 @@ from api.dtos import PlayerDetailsDto
 from api.players.mapping import NOT_IN_MATCH, to_current_match, to_player_details
 from api.players.matches import current_opponent, match_results, player_matches, win_streak
 from api.players.names import opponent_names
+from api.players.ranks import opponent_rank
 from api.slugbot import SlugbotError, SlugbotMatchBatchDto
-from api.slugbot.dtos import UNRANKED
 
 logger = logging.getLogger("dbd1v1timerapi")
 
@@ -51,7 +51,7 @@ async def get_player_details(ctx: Context, player_id: str) -> PlayerDetailsDto:
         _extend_streak(ctx, player_id, batch, streak)
         if results and streak == len(results)
         else _value(streak),
-        _opponent_rank(ctx, opponent.player_id) if opponent is not None else _value(None),
+        opponent_rank(ctx, opponent.player_id) if opponent is not None else _value(None),
     )
     current = (
         NOT_IN_MATCH
@@ -63,15 +63,6 @@ async def get_player_details(ctx: Context, player_id: str) -> PlayerDetailsDto:
 
 async def _value(value: T) -> T:
     return value
-
-
-async def _opponent_rank(ctx: Context, opponent_id: str) -> int:
-    """UNRANKED if the lookup fails; the client has already logged why."""
-    try:
-        opponent = await ctx.slugbot.get_player(opponent_id)
-    except SlugbotError:
-        return UNRANKED
-    return opponent.rank
 
 
 async def _extend_streak(
