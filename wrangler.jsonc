@@ -60,7 +60,7 @@
 		"CACHE_NAME": "dbd1v1timerapi",
 		"STATUS_ENABLED": "true",
 		"FAST_POLL_SEC": "20",
-		"SLOW_POLL_SEC": "90",
+		"SLOW_POLL_SEC": "60",
 		"FAST_POLL_CAP_SEC": "90",
 		"LATEST_VERSION": "1.6.0",
 		"MIN_SUPPORTED_VERSION": "1.6.0",
