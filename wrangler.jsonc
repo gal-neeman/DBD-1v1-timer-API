@@ -93,8 +93,8 @@
 				"FAST_POLL_SEC": "20",
 				"SLOW_POLL_SEC": "30",
 				"FAST_POLL_CAP_SEC": "120",
-				"LATEST_VERSION": "1.7.0",
-				"MIN_SUPPORTED_VERSION": "1.7.0",
+				"LATEST_VERSION": "1.6.0",
+				"MIN_SUPPORTED_VERSION": "1.6.0",
 				"STATUS_MESSAGE": "",
 				"LOG_LEVEL": "DEBUG"
 			},
